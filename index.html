@@ -10398,7 +10398,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.65 Alpha';
+const ALPHA_V = '0.66 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10789,6 +10789,107 @@ const ED = (() => {
   { const _eb = enterBuilding; enterBuilding = function (id) { if (String(id).startsWith('ed_b')) { const b = buildings.find(x => x.id === id); return say([b ? b.name : 'Edificio', b && b.note ? `Nota: ${b.note}` : 'Todavía no tiene adentro.']); } return _eb.apply(this, arguments); }; }
   return { open, edit, all, close, fromGame, parseMap, exportMap, testWalk, backToEditor, get cur() { return cur; }, view: () => ({ zoom, panX, panY }) };
 })();
+
+// ================= CELULAR ACOSTADO (v0.66): pantalla completa, joystick invisible y diagonales =================
+// En horizontal el mapa ocupa toda la pantalla. Apoyás el dedo en cualquier lugar de la mitad izquierda y aparece un joystick
+// tenue: arrastrás y caminás (8 direcciones). A, B y los menús quedan flotando, semitransparentes. En vertical no cambia nada.
+
+// ---- diagonales: un paso en diagonal, y si hay una pared, te deslizás por el costado que se pueda ----
+const DIAG = { ul: ['up', 'left'], ur: ['up', 'right'], dl: ['down', 'left'], dr: ['down', 'right'] };
+for (const [k, [v, h]] of Object.entries(DIAG)) DIRS[k] = [DIRS[h][0], DIRS[v][1]];
+let joyPrim = null; // el eje que más empujás: hacia ahí mirás
+{ const _tm = tryMove;
+  tryMove = function (dir) {
+    const dg = DIAG[dir]; if (!dg) return _tm.apply(this, arguments);
+    const [v, h] = dg, [dx, dy] = DIRS[dir], x = P.pos.x, y = P.pos.y, nx = x + dx, ny = y + dy, prim = joyPrim === 'v' ? v : h;
+    const jumps = (MAPS[curMap].jumps || []), jumpAt = (X, Y) => jumps.some(j => j.x === X && j.y === Y);
+    const free = (X, Y) => X >= 0 && Y >= 0 && X < MW && Y < MH && !isBlocked(X, Y) && !jumpAt(X, Y);
+    if (free(nx, ny) && (free(nx, y) || free(x, ny)) && !exitAt(nx, ny)) { P.pos.dir = prim; moving = { fx: x, fy: y, tx: nx, ty: ny, t: 0 }; return; }
+    for (const d of (prim === h ? [h, v] : [v, h])) { const [ex, ey] = DIRS[d]; if (free(x + ex, y + ey) || jumpAt(x + ex, y + ey) || exitAt(x + ex, y + ey)) return _tm.call(this, d); }
+    return _tm.call(this, prim); // contra la esquina: un golpecito (o se interactúa con lo que haya)
+  };
+}
+
+// ---- ¿está acostado? ----
+const LAND_MQ = window.matchMedia('(orientation: landscape) and (max-height: 540px) and (hover: none), (orientation: landscape) and (max-height: 540px) and (pointer: coarse)');
+const isLand = () => LAND_MQ.matches;
+{
+  const css = `
+  body.land { margin: 0; padding: 0; overflow: hidden; }
+  body.land #shell { max-width: none; }
+  body.land .wrap { max-width: none; margin: 0; }
+  body.land .console { padding: 0; border-radius: 0; box-shadow: none; gap: 0; background: #141a2c; }
+  body.land #lcd { border: 0; border-radius: 0; width: 100vw; }
+  body.land .keys { display: none; }
+  body.land .controls { position: fixed; inset: 0; pointer-events: none; z-index: 40; display: block; padding: 0; }
+  body.land .controls .dpad { display: none; }
+  body.land .controls .abtns { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); pointer-events: auto; display: flex; align-items: flex-end; gap: 10px; }
+  body.land .controls .round { opacity: .42; transition: opacity .15s; width: 64px; height: 64px; }
+  body.land .controls .round:active { opacity: .95; }
+  body.land .controls .pills { position: fixed; top: calc(4px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; gap: 6px; pointer-events: auto; }
+  body.land .controls .pill { opacity: .5; padding: 4px 8px; font-size: 11px; } body.land .controls .pill:active { opacity: 1; }
+  body.land .hud { transform: scale(.7); transform-origin: top left; left: 4px; right: auto; top: 4px; width: calc((100% - 8px) / .7); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); box-sizing: border-box; }
+  body.land:not([data-screen-now="world"]) .controls .round { opacity: .25; }
+  body.land #lcd > .screen:not(#world) { padding: 10px calc(10px + env(safe-area-inset-right)) 90px calc(10px + env(safe-area-inset-left)); }
+  body.land .al-fab { top: calc(4px + env(safe-area-inset-top)); bottom: auto; right: auto; left: calc(50% + 120px); width: 34px; height: 28px; font-size: 14px; opacity: .6; box-shadow: none; border-width: 2px; }
+  #joy { position: fixed; left: 0; top: 0; bottom: 0; width: 50vw; z-index: 39; touch-action: none; display: none; }
+  body.land[data-screen-now="world"] #joy { display: block; }
+  #joy .base, #joy .knob { position: absolute; border-radius: 50%; pointer-events: none; display: none; transform: translate(-50%, -50%); }
+  #joy .base { width: 110px; height: 110px; border: 3px solid rgba(248,244,227,.35); background: rgba(248,244,227,.08); }
+  #joy .knob { width: 48px; height: 48px; background: rgba(248,244,227,.45); border: 2px solid rgba(13,19,32,.4); }
+  #joy.on .base, #joy.on .knob { display: block; }`;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+}
+// la pantalla del juego ocupa todo el alto disponible y la cámara se ajusta al alto (no al ancho)
+{ const _ls = lcdSize;
+  lcdSize = function () {
+    if (!isLand()) return _ls.apply(this, arguments);
+    const lcd = $('#lcd'); if (!lcd) return { w: 800, h: 520 };
+    const h = window.innerHeight; lcd.style.height = h + 'px';
+    return { w: lcd.clientWidth || window.innerWidth, h };
+  };
+}
+{ const _rc = resizeCanvas;
+  resizeCanvas = function () {
+    _rc.apply(this, arguments);
+    if (!isLand()) return;
+    const h = window.innerHeight; scale = Math.max(1.4, h / (12 * TS)) * (typeof zoomF === 'function' ? zoomF() / 0.75 : 1);
+  };
+}
+function syncLand() {
+  const on = isLand(); document.body.classList.toggle('land', on);
+  if (!on) { const l = $('#lcd'); if (l) l.style.height = ''; }
+  if (typeof resizeCanvas === 'function' && typeof curScreen === 'function' && curScreen() === 'world') resizeCanvas(); else if (typeof lcdSize === 'function') lcdSize();
+}
+LAND_MQ.addEventListener ? LAND_MQ.addEventListener('change', syncLand) : LAND_MQ.addListener(syncLand);
+window.addEventListener('resize', () => setTimeout(syncLand, 60));
+setInterval(() => { const s = typeof curScreen === 'function' ? curScreen() : ''; if (document.body.dataset.screenNow !== s) document.body.dataset.screenNow = s; }, 150);
+syncLand();
+
+// ---- joystick invisible: aparece donde apoyás el dedo ----
+{
+  const joy = el('div'); joy.id = 'joy'; joy.innerHTML = '<div class="base"></div><div class="knob"></div>'; document.body.appendChild(joy);
+  const base = joy.querySelector('.base'), knob = joy.querySelector('.knob');
+  let id = null, ox = 0, oy = 0;
+  const SECT = ['right', 'dr', 'down', 'dl', 'left', 'ul', 'up', 'ur'];
+  joy.addEventListener('pointerdown', e => {
+    if (id !== null) return; id = e.pointerId; joy.setPointerCapture(id); ox = e.clientX; oy = e.clientY;
+    base.style.left = knob.style.left = ox + 'px'; base.style.top = knob.style.top = oy + 'px'; joy.classList.add('on'); e.preventDefault();
+    if (!$('#textbox').hidden && typeof pressA === 'function') { pressA(); } // con un cartel abierto, tocar avanza el texto
+  });
+  joy.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    let dx = e.clientX - ox, dy = e.clientY - oy; const d = Math.hypot(dx, dy), R = 46;
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    knob.style.left = ox + dx + 'px'; knob.style.top = oy + dy + 'px';
+    if (d < 14) { held = null; return; }
+    const a = Math.atan2(e.clientY - oy, e.clientX - ox), k = (Math.round(a / (Math.PI / 4)) + 8) % 8;
+    joyPrim = Math.abs(e.clientX - ox) >= Math.abs(e.clientY - oy) ? 'h' : 'v';
+    held = SECT[k];
+  });
+  const up = e => { if (e.pointerId !== id) return; id = null; held = null; joy.classList.remove('on'); };
+  joy.addEventListener('pointerup', up); joy.addEventListener('pointercancel', up);
+}
 
 </script>
 <script>if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js');</script></body></html>
