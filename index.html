@@ -10398,7 +10398,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.66.2 Alpha';
+const ALPHA_V = '0.67 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10496,7 +10496,7 @@ const AL = (() => {
 
   // botón flotante 📝 (en el juego) y lo de la pantalla de inicio
   const fab = el('button', 'al-fab', '📝'); fab.title = 'Notas de prueba'; fab.hidden = true; fab.onclick = () => open('nota'); document.body.appendChild(fab);
-  const sync = () => { const scr = typeof curScreen === 'function' ? curScreen() : ''; fab.hidden = !!$('#al-ov') || !!$('#ed-root') || !['world', 'place', 'menu', 'battle', 'race', 'house', 'gym', 'tourney', 'title'].includes(scr); document.body.classList.toggle('has-gm', !!($('#gm-btn') && !$('#gm-btn').hidden)); };
+  const sync = () => { const scr = typeof curScreen === 'function' ? curScreen() : ''; fab.hidden = !!$('#al-ov') || !!$('#ed-root') || (document.body.classList.contains('land') && $('#modal') && !$('#modal').hidden) || !['world', 'place', 'menu', 'battle', 'race', 'house', 'gym', 'tourney', 'title'].includes(scr); document.body.classList.toggle('has-gm', !!($('#gm-btn') && !$('#gm-btn').hidden)); };
   setInterval(sync, 400);
   { const t = document.querySelector('#title .title'); if (t && !$('#al-badge')) { const b = el('div', 'al-badge', ALPHA_V.toUpperCase()); b.id = 'al-badge'; t.appendChild(b); } }
   { const m = document.querySelector('#title .startmenu'); if (m && !$('#t-alpha')) {
@@ -10832,6 +10832,27 @@ const isLand = () => LAND_MQ.matches;
   body.land:not([data-screen-now="world"]) .controls .round { opacity: .25; }
   body.land #lcd > .screen:not(#world) { padding: 10px calc(10px + env(safe-area-inset-right)) 90px calc(10px + env(safe-area-inset-left)); }
   body.land .al-fab { top: calc(4px + env(safe-area-inset-top)); bottom: auto; right: auto; left: calc(50% + 120px); width: 34px; height: 28px; font-size: 14px; opacity: .6; box-shadow: none; border-width: 2px; }
+  /* ventanas de opciones: texto a la izquierda (con scroll), botones siempre a la vista a la derecha */
+  body.land .modal { padding: 8px calc(8px + env(safe-area-inset-right)) 8px calc(8px + env(safe-area-inset-left)); place-items: center; }
+  body.land .modal .sheet { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); column-gap: 16px; width: min(94vw, 860px); max-height: calc(100dvh - 16px); box-sizing: border-box; font-size: 16px; }
+  body.land #m-title { grid-column: 1; margin: 0 0 4px; font-size: 18px; }
+  body.land #m-body { grid-column: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+  body.land #m-body p { margin: 0 0 6px; }
+  body.land #m-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; justify-content: center; gap: 8px; overflow-y: auto; max-height: calc(100dvh - 40px); padding: 2px 10px 2px 0; }
+  body.land #m-acts .btn { white-space: nowrap; }
+  body.land[data-overlay="1"] .controls .abtns { display: none; }
+  body.land:not([data-screen-now="world"]):not([data-screen-now="mini"]) .controls .abtns { display: none; } /* fuera del mapa y del minijuego, las opciones se tocan directo */
+  /* el spot en dos columnas: a la izquierda el spot y la escena, a la derecha tu estado, el relato y las opciones */
+  body.land #battle { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 12px; align-content: start; padding-bottom: 12px !important; }
+  body.land #battle .arena { grid-column: 1; grid-row: 1 / span 2; grid-template-columns: 1fr; gap: 6px; align-items: start; margin: 0; }
+  body.land #battle .arena .statcard { padding: 6px 10px; } body.land #battle .statcard h3 { font-size: 18px; margin: 0; } body.land #battle .statcard p, body.land #battle .statcard small { font-size: 14px; margin: 0; }
+  body.land #battle .mecard { grid-column: 2; grid-row: 1; margin: 0; padding: 4px 10px; }
+  body.land #battle .battlebox { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; margin: 0; }
+  body.land #b-log { min-height: 0; padding: 6px 10px; font-size: 15px; gap: 2px; max-height: 34vh; overflow-y: auto; }
+  body.land #b-cmds { border-left: 0; border-top: 4px solid var(--box-line); }
+  body.land #b-cmds button { font-size: 15px; padding: 8px 6px; }
+  body.land[data-screen-now="battle"] .controls .abtns { right: calc(8px + env(safe-area-inset-right)); bottom: calc(6px + env(safe-area-inset-bottom)); }
+  body.land[data-screen-now="battle"] .controls .round { width: 46px; height: 46px; opacity: .3; }
   #joy { position: fixed; left: 0; top: 0; bottom: 0; width: 50vw; z-index: 39; touch-action: none; display: none; }
   body.land[data-screen-now="world"] #joy { display: block; }
   body.land[data-overlay="1"] #joy { display: none; }
