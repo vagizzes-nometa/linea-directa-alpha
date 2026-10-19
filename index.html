@@ -10398,7 +10398,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.66.1 Alpha';
+const ALPHA_V = '0.66.2 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10834,6 +10834,7 @@ const isLand = () => LAND_MQ.matches;
   body.land .al-fab { top: calc(4px + env(safe-area-inset-top)); bottom: auto; right: auto; left: calc(50% + 120px); width: 34px; height: 28px; font-size: 14px; opacity: .6; box-shadow: none; border-width: 2px; }
   #joy { position: fixed; left: 0; top: 0; bottom: 0; width: 50vw; z-index: 39; touch-action: none; display: none; }
   body.land[data-screen-now="world"] #joy { display: block; }
+  body.land[data-overlay="1"] #joy { display: none; }
   #joy .base, #joy .knob { position: absolute; border-radius: 50%; pointer-events: none; display: none; transform: translate(-50%, -50%); }
   #joy .base { width: 110px; height: 110px; border: 3px solid rgba(248,244,227,.35); background: rgba(248,244,227,.08); }
   #joy .knob { width: 48px; height: 48px; background: rgba(248,244,227,.45); border: 2px solid rgba(13,19,32,.4); }
@@ -10863,7 +10864,15 @@ function syncLand() {
 }
 LAND_MQ.addEventListener ? LAND_MQ.addEventListener('change', syncLand) : LAND_MQ.addListener(syncLand);
 window.addEventListener('resize', () => setTimeout(syncLand, 60));
-setInterval(() => { const s = typeof curScreen === 'function' ? curScreen() : ''; if (document.body.dataset.screenNow !== s) document.body.dataset.screenNow = s; }, 150);
+// con una ventana abierta (preguntas, menús, notas, editor) el joystick se apaga: los toques van a los botones
+function syncOverlay() {
+  const s = typeof curScreen === 'function' ? curScreen() : ''; if (document.body.dataset.screenNow !== s) document.body.dataset.screenNow = s;
+  const m = $('#modal'), ov = (m && !m.hidden) || !!$('#al-ov') || !!$('#ed-root') || !!$('#ed-dlg') ? '1' : '0';
+  if (document.body.dataset.overlay !== ov) { document.body.dataset.overlay = ov; if (ov === '1') { held = null; const j = $('#joy'); if (j) j.classList.remove('on'); } }
+}
+setInterval(syncOverlay, 120);
+{ const m = $('#modal'); if (m && window.MutationObserver) new MutationObserver(syncOverlay).observe(m, { attributes: true, attributeFilter: ['hidden'] }); }
+new MutationObserver(syncOverlay).observe(document.body, { childList: true });
 syncLand();
 
 // ---- joystick invisible: aparece donde apoyás el dedo ----
