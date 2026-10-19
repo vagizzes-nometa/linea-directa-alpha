@@ -4278,7 +4278,7 @@ function update(dt) {
   updatePose();
   wanderNpcs(dt);
   if (moving) {
-    moving.t += dt / (moving.jump ? 300 : 150) * walkFactor();
+    moving.t += dt / (moving.jump ? 300 : 150 * (moving.diag ? Math.SQRT2 : 1)) * walkFactor(); // en diagonal el paso es más largo: tarda lo que corresponde
     if (moving.t >= 1) { dust.push({ x: moving.fx * TS + 8, y: moving.fy * TS + 14, t: performance.now() }); if (dust.length > 6) dust.shift(); P.pos.x = moving.tx; P.pos.y = moving.ty; moving = null; SND.play('step'); if (!guideActive()) { spend((MAPS[curMap].stepMin || 0.5) * (moving && moving.jump ? 2 : 1)); if (Math.round(P.min * 2) % 4 === 0) renderHud(); } afterStep(); }
   }
   if (!moving && held && canAct()) { if (typeof route !== 'undefined') route = null; tryMove(held); }
@@ -10398,7 +10398,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.66 Alpha';
+const ALPHA_V = '0.66.1 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10804,7 +10804,7 @@ let joyPrim = null; // el eje que más empujás: hacia ahí mirás
     const [v, h] = dg, [dx, dy] = DIRS[dir], x = P.pos.x, y = P.pos.y, nx = x + dx, ny = y + dy, prim = joyPrim === 'v' ? v : h;
     const jumps = (MAPS[curMap].jumps || []), jumpAt = (X, Y) => jumps.some(j => j.x === X && j.y === Y);
     const free = (X, Y) => X >= 0 && Y >= 0 && X < MW && Y < MH && !isBlocked(X, Y) && !jumpAt(X, Y);
-    if (free(nx, ny) && (free(nx, y) || free(x, ny)) && !exitAt(nx, ny)) { P.pos.dir = prim; moving = { fx: x, fy: y, tx: nx, ty: ny, t: 0 }; return; }
+    if (free(nx, ny) && (free(nx, y) || free(x, ny)) && !exitAt(nx, ny)) { P.pos.dir = prim; moving = { fx: x, fy: y, tx: nx, ty: ny, t: 0, diag: true }; return; }
     for (const d of (prim === h ? [h, v] : [v, h])) { const [ex, ey] = DIRS[d]; if (free(x + ex, y + ey) || jumpAt(x + ex, y + ey) || exitAt(x + ex, y + ey)) return _tm.call(this, d); }
     return _tm.call(this, prim); // contra la esquina: un golpecito (o se interactúa con lo que haya)
   };
