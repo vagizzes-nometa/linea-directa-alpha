@@ -4380,6 +4380,7 @@ function render() {
   if (P.ola && !(emote && performance.now() - emote.t0 < 1800)) objs.push({ y: 997, d: () => drawOlaIcon(c, px, py, frameT) });
   if (typeof occluders === 'function') occluders(c, objs, px, py); // árboles y muebles que quedan delante (más al sur) de alguien
   objs.sort((a, b) => a.y - b.y).forEach(o => o.d());
+  if (typeof drawFiesta === 'function') drawFiesta(c);
   if (typeof drawTapMark === 'function') drawTapMark(c);
   if (P.duelPend && !moving) setTimeout(runDuelInvite, 0);
   if (P.olaPend && curScreen() === 'world' && $('#modal').hidden && $('#textbox').hidden && !moving) setTimeout(() => { if (P.olaPend && curScreen() === 'world' && $('#modal').hidden && $('#textbox').hidden) olaPrompt(); }, 0);
@@ -4400,6 +4401,7 @@ function render() {
       c.fillStyle = gr; c.fillRect(sx - rr, sy - rr, rr * 2, rr * 2);
     }
     c.globalCompositeOperation = 'source-over';
+    if (typeof fiestaGlow === 'function') fiestaGlow(c, camx, camy, dpr);
   }
 }
 
@@ -4660,6 +4662,7 @@ function night(dayMsgs, wasRest) {
     if (noDinner) { P.hambre = clamp((P.hambre || 0) + 10, 0, 100); sl.unshift('Te acostaste sin cenar: a la madrugada el hambre te despertó.'); }
     sl.push(...updateHunger());
     sl.unshift(`Dormiste ${nf(sb.hrs, 1)} h (recuperación ${Math.round((P.sleepF ?? 1) * 100)}%).`);
+    if (typeof lateNightLines === 'function') sl.unshift(...lateNightLines(sb.bed));
     if (sb.hrs < 7) { const fx = Math.round((7 - sb.hrs) * 4); P.fatiga = clamp(P.fatiga + fx, 0, 100); sl.splice(1, 0, `Dormiste poco: el cuerpo no termina de reponerse (+${fx} fatiga).`); }
     const away = P.sleepHow && P.sleepHow !== 'casa' && curMap !== 'hogar' && curMap !== 'barrio';
     const homeTown = away ? curMap : MAPS[curMap].sleep && curMap !== 'hogar' && curMap !== 'barrio' ? curMap : 'hogar';
@@ -7039,7 +7042,7 @@ function watchVideo(late, n) {
     P.vidDay = P.day;
     if (late || P.min >= 1380) return ask('Un video más', [`Son las ${clk}.`, g >= 6 ? 'Te despejó un rato.' : 'Ya casi no te suma nada: solo te resta sueño.'], [
       { label: 'Uno más', fn: () => watchVideo(true, n + 1) },
-      { label: 'Apagar y dormir', primary: true, fn: () => say(['Apagaste. Buena decisión.']) }]);
+      { label: 'Apagar e ir a la cama', primary: true, fn: () => bedAct() }]);
     backToWorld([g >= 6 ? 'Te despejaste un rato y te quedó la línea en la cabeza (+disfrute).' : 'Otro video más de lo mismo. Ya casi no te suma nada.']);
   }, { late: late || P.min >= 1380, clock: clk });
 }
@@ -10405,10 +10408,111 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
   };
 }
 
+// ================= LA NOCHE (v0.70): el celu en la cama, la gorra de viernes y sábado, y el costo de acostarte tarde =================
+// La noche tienta: el celu te muestra trucos que no viste nunca y los viernes y sábados la plaza se ilumina y la gorra paga más.
+// Quedarte cuesta, y se ve: el reloj se pone azul, tu vieja te avisa, y al despertar te dice a qué hora te acostaste y qué te costó.
+// Dos noches tarde seguidas son deuda de sueño: suma miedo y fatiga y se borra solo durmiendo temprano (la siesta no alcanza).
+const WEEK = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const dowOf = d => ((d ?? P.day) - 1) % 7; // el día 1 es lunes
+const dowTxt = d => WEEK[dowOf(d)];
+const LATE_MIN = 1380; // 23:00
+const isLate = () => (P.min ?? 0) >= LATE_MIN;
+const fiestaNight = () => P && P.slot === 2 && [4, 5].includes(dowOf()) && (P.min ?? 0) < 1500 && !MAPS[curMap].indoor;
+
+// ---- el reloj dice el día de la semana y se pone azul después de las 23 ----
+{ const st = document.createElement('style'); st.textContent = `#hud-day.late { color: #3a5bd0; } #hud-day.late::before { content: '🌙 '; }`; document.head.appendChild(st); }
+{ const _rh = renderHud;
+  renderHud = function () {
+    _rh.apply(this, arguments);
+    const h = $('#hud-day'); if (!h || !P) return;
+    h.textContent = `Día ${P.day} (${dowTxt().slice(0, 3)}) · ${clockTxt()} · $${Math.round(P.money || 0)}`;
+    h.classList.toggle('late', isLate());
+  };
+}
+
+// ---- el celu en la cama: un video más ----
+const VID_WHO = ['un pibe de Rosario', 'una piba de Córdoba', 'un francés', 'un equipo de Chile', 'una atleta de la selección', 'un ruso en una terraza', 'un pibe de La Plata', 'un inglés en un estacionamiento'];
+const VID_MEH = ['Un video de gatos. Después otro. No sabés en qué momento pasó.', 'Una compilación de caídas. Te reís, pero no aprendés nada.', 'Una pelea en los comentarios de un video de parkour. Te quedás leyendo.', 'Publicidad, publicidad, un video que ya viste.', 'Un tutorial de algo que ya sabés hacer.'];
+function phoneScroll(n) {
+  n = n || 1; useSlot(20);
+  const k = K(), pool = Object.keys(SKILLS).filter(s => !P.skills[s] && !k.skills[s] && !SKILLS[s].oficio);
+  const lines = [];
+  if (pool.length && R() < (n <= 2 ? 0.55 : 0.25)) {
+    const s = pool[Math.floor(R() * pool.length)], who = VID_WHO[Math.floor(R() * VID_WHO.length)];
+    knowSkill(s, 'watched', who); addFun(P, 'video', n <= 2 ? 6 : 2);
+    lines.push(`📱 Un video de ${who} clavando un ${SKILLS[s].name}. Nunca habías visto uno. Lo anotaste en el cuaderno.`);
+  } else { addFun(P, 'video', n <= 2 ? 3 : 0); lines.push('📱 ' + VID_MEH[Math.floor(R() * VID_MEH.length)]); }
+  if (n === 2 && curMap === 'hogar' && isLate()) lines.push('Tu vieja golpea la puerta: "¿Todavía despierto? Mañana entrenás."');
+  const hrs = Math.max(0, (480 + 1440 - (P.min + 30)) / 60);
+  lines.push(`Son las ${clockTxt()}. ${isLate() ? `Si te dormís ahora y te levantás a las 8, dormís ${nf(hrs, 1)} h.` : 'Todavía estás a tiempo.'}`);
+  ask('📱 El celu', lines, [
+    { label: 'Uno más (20 min)', fn: () => phoneScroll(n + 1) },
+    { label: 'Apagar y dormir', primary: true, fn: () => { P.homeSleep = true; goSleep(); } }]);
+}
+{ const _ba = bedAct;
+  bedAct = function () {
+    if (P.min < 1200 || !P.phone || P.dinnerDay !== P.day || P.bedPhone === P.day) return _ba.apply(this, arguments);
+    ask('La cama', [`Son las ${clockTxt()}.`, 'El celu está en la mesita de luz.'], [
+      { label: 'Dormir', primary: true, fn: () => { P.bedPhone = P.day; _ba(); } },
+      { label: '📱 Mirar el celu un rato', fn: () => { P.bedPhone = P.day; phoneScroll(1); } }]);
+  };
+}
+
+// ---- viernes y sábado a la noche: la gorra con luces ----
+{ const _ss = startShow;
+  startShow = function (gz) {
+    if (P.slot >= 2 && fiestaNight()) {
+      const slot = P.slot; P.slot = 1; // la plaza llena, como a la tarde... o más
+      try { _ss.apply(this, arguments); } finally { P.slot = slot; }
+      if (battle && battle.mode === 'show') { battle.aud *= 1.4; battle.night = true; battle.log[0] = `Es ${dowTxt()} a la noche: guirnaldas prendidas, música y gente con ganas de ver algo. Dejás la gorra.`; renderBattle(); }
+      return;
+    }
+    if (P.slot >= 2) { const rulo = (gz || 'barrio') === 'barrio'; return say([rulo ? 'Rulo: De noche, entre semana, no hay nadie. Los viernes y sábados sí: la plaza se llena.' : 'De noche, entre semana, no pasa nadie. Los viernes y sábados sí.']); }
+    return _ss.apply(this, arguments);
+  };
+}
+// las luces: una guirnalda de lamparitas alrededor de cada gorra y luz cálida en el piso
+const FEST_COL = ['#ffd23f', '#e0663b', '#6ad0ff', '#7be07b', '#ff7ab8'];
+function drawFiesta(c) {
+  if (!fiestaNight()) return;
+  for (const p of props) if (p.id === 'gorra') {
+    const cx = p.x * TS + 8, cy = p.y * TS + 8, R0 = 30, N = 14;
+    c.save(); c.strokeStyle = 'rgba(40,40,40,.6)'; c.lineWidth = 1; c.beginPath();
+    for (let i = 0; i <= N; i++) { const a = Math.PI + (i / N) * Math.PI, x = cx + Math.cos(a) * R0 * 1.3, y = cy - 18 + Math.sin(a) * 10 + Math.sin(i * 1.1) * 2; i ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke();
+    for (let i = 0; i <= N; i++) { const a = Math.PI + (i / N) * Math.PI, x = cx + Math.cos(a) * R0 * 1.3, y = cy - 18 + Math.sin(a) * 10 + Math.sin(i * 1.1) * 2, on = (Math.floor(frameT / 400) + i) % 5 !== 0;
+      c.fillStyle = on ? FEST_COL[i % FEST_COL.length] : '#555'; c.fillRect(Math.round(x) - 1, Math.round(y), 3, 3); }
+    // dos postes
+    c.fillStyle = '#3a3a46'; c.fillRect(cx - R0 * 1.3 - 1, cy - 18, 2, 26); c.fillRect(cx + R0 * 1.3 - 1, cy - 18, 2, 26);
+    c.restore();
+  }
+}
+// el brillo va después de oscurecer la pantalla: se agrega a la luz de los faroles
+function fiestaGlow(c, camx, camy, dpr) {
+  if (!fiestaNight()) return;
+  c.globalCompositeOperation = 'lighter';
+  for (const p of props) if (p.id === 'gorra') {
+    const sx = ((p.x * TS + 8) - camx) * scale * dpr, sy = ((p.y * TS) - camy) * scale * dpr, rr = 60 * scale * dpr;
+    const gr = c.createRadialGradient(sx, sy, 4, sx, sy, rr); gr.addColorStop(0, 'rgba(255,190,120,.5)'); gr.addColorStop(1, 'rgba(255,190,120,0)');
+    c.fillStyle = gr; c.fillRect(sx - rr, sy - rr, rr * 2, rr * 2);
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+
+// ---- al despertar: a qué hora te acostaste y la deuda de sueño ----
+function lateNightLines(bed) {
+  const out = [];
+  if (bed > LATE_MIN + 30) {
+    P.lateRun = (P.lateRun || 0) + 1;
+    out.push(`🌙 Te acostaste a las ${clockTxt(bed)}.`);
+    if (P.lateRun >= 2) { P.miedo = clamp(P.miedo + 3, 0, 100); P.fatiga = clamp(P.fatiga + 4, 0, 100); out.push(`Deuda de sueño: ${P.lateRun} noches seguidas tarde. Cansado leés peor el salto (+3 miedo, +4 fatiga). Se borra durmiendo temprano, la siesta no alcanza.`); }
+  } else { if ((P.lateRun || 0) >= 2) out.push('Dormiste temprano: se te borró la deuda de sueño.'); P.lateRun = 0; }
+  return out;
+}
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.69 Alpha';
+const ALPHA_V = '0.70 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
