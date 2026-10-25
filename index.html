@@ -10512,7 +10512,7 @@ function lateNightLines(bed) {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.70 Alpha';
+const ALPHA_V = '0.70.1 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -11057,4 +11057,4 @@ syncLand();
 }
 
 </script>
-<script>if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js');</script></body></html>
+<script>if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});</script></body></html>
