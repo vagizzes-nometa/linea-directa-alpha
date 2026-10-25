@@ -1328,7 +1328,8 @@ const learnFactor = p => 1 / (1 + ((p.domToday && p.domToday.day === p.day ? p.d
 function domAdd(p, key, from, to) {
   const g = Math.max(0, Math.min((to - from) * learnFactor(p), domRoom(p, key)));
   p.domToday.k[key] = (p.domToday.k[key] || 0) + g; p.domToday.all += g;
-  p.dom[key] = from + g; return g;
+  p.dom[key] = from + g; if (p.dom[key] >= 99.5) p.dom[key] = 100; // 99,6 se ve como 100%: es 100
+  return g;
 }
 // Mortales: se aprenden con la rosca de giro; el resto, con la barra de timing
 const FLIP_SKILLS = new Set(['flick', 'cheatgainer', 'backflip', 'sideflip', 'wallflip', 'gainer', 'webster', 'cork', 'dcork', 'pimpflip', 'barflip', 'konggainer', 'tictac360']);
@@ -1349,6 +1350,7 @@ function spotAction(p, spot, action, r, pre) {
   pre = pre || null;
   const key = spot.id + ':' + p.level;
   p.dom = p.dom || {}; p.skills = p.skills || {};
+  if ((p.dom[key] || 0) >= 99.5 && p.dom[key] < 100) p.dom[key] = 99.99; // partidas viejas trabadas en 99,x: el próximo intento lo cierra
   const dom0 = p.dom[key] || 0, out = { lines: [], result: 'ok' };
   const capped = dom0 < 100 && domRoom(p, key) <= 0;
   let m = spotMargin(p, spot);
@@ -1392,6 +1394,7 @@ function spotAction(p, spot, action, r, pre) {
       }
     }
   }
+  if (dom0 >= 99.5 && dom0 < 100) p.dom[key] = 100;
   if (dom0 < 100 && (p.dom[key] || 0) >= 100) {
     out.mastered = true;
     const first = !p.skills[spot.skill];
@@ -4709,7 +4712,7 @@ function night(dayMsgs, wasRest) {
       acts.appendChild(b);
     }
   } else if (forcedLines) { body.innerHTML += `<p class="event">${BINGE.forced.text()}</p>`; finish(forcedLines); }
-  else finish([noDinner ? 'No cenaste.' : (P.heavy || 0) >= 1 ? 'Te acostaste con la panza llena.' : P.dinnerDay === P.day ? 'Cenaste y te fuiste a dormir.' : 'Cenaste lo que te recomendó la nutricionista.']);
+  else finish([noDinner ? 'No cenaste.' : (P.heavy || 0) >= 1 ? 'Te acostaste con la panza llena.' : P.dinnerDay === P.day ? 'Cenaste y te fuiste a dormir.' : (P.nutriMet ? 'Cenaste lo que te recomendó la nutricionista.' : 'Cenaste lo que había en casa.')]);
   m.hidden = false;
 }
 // ================= VAGO, EL MAESTRO: consejos en el momento justo (una vez cada uno) =================
@@ -4923,7 +4926,7 @@ function openFood(where) {
   const grid = el('div', 'sessions');
   for (const f of list) {
     const pr = foodPrice(f), fp = where === 'casa' ? planPortion(f) : f;
-    const b = el('button', 'session food', `${foodImg(f.id, 32)}<b>${f.name}</b><span>${f.sub}</span><em>${f.agua ? '−3 fatiga' : f.cafe ? '−6 fatiga' : '+' + fp.carb + ' energía' + (where === 'casa' ? ' (porción del plan)' : '')}${!f.cafe && !f.agua && where !== 'casa' && (P.energia ?? 60) + f.carb > 100 ? ` · te sobran ${Math.round((P.energia ?? 60) + f.carb - 100)}` : ''} · pesado ${heavyDots(f.heavy)}${f.antojo ? ' · 😊 +1' : ''}</em><em class="price">${pr ? priceTxt(pr) : 'gratis'}</em>`);
+    const b = el('button', 'session food', `${foodImg(f.id, 32)}<b>${f.name}</b><span>${f.sub}</span><em>${f.agua ? '−3 fatiga' : f.cafe ? '−6 fatiga' : '+' + fp.carb + ' energía' + (where === 'casa' ? (P.nutriMet ? ' (porción del plan)' : ' (porción de casa)') : '')}${!f.cafe && !f.agua && where !== 'casa' && (P.energia ?? 60) + f.carb > 100 ? ` · te sobran ${Math.round((P.energia ?? 60) + f.carb - 100)}` : ''} · ${f.heavy >= 0.5 ? 'pesado ' + heavyDots(f.heavy) : 'liviano'}${f.antojo ? ' · 😊 +1' : ''}</em><em class="price">${pr ? priceTxt(pr) : 'gratis'}</em>`);
     b.disabled = (full && f.heavy > 0 && !f.bag) || !canPay(pr) || mealDone;
     b.onclick = () => f.bag && where !== 'casa' ? buyBagChoice(f, where) : eatFood(f, where);
     if (f.bag && where !== 'casa') b.querySelector('b').insertAdjacentHTML('beforeend', ' 📥');
@@ -4973,7 +4976,7 @@ function doRest(o, where) {
     P.energia = clamp((P.energia ?? 60) + o.e + o.d / 60 * 5, 0, 100); P.fatiga = clamp(P.fatiga - o.f - o.d / 60 * 0.6, 0, 100);
     if (o.night) P.napShift = (P.napShift || 0) + o.night;
     if (o.k !== 'sentar') { P.napDay = P.day; P.napAt = P.min; }
-    backToWorld([o.k === 'sentar' ? 'Te sentaste a mirar a la gente pasar. Respirás.' : where === 'manta' ? `Siesta en la manta. Te levantás a las ${clockTxt()}, con la marca del pasto en la cara.` : `Siesta en el banco. Te levantás a las ${clockTxt()}, con el cuello torcido.`, `⚡ ${Math.round(P.energia)} · 😩 ${Math.round(P.fatiga)}`, o.night ? `🌙 A la noche te vas a dormir ${durTxt(o.night)} más tarde.` : '', o.k !== 'sentar' ? (P.tut.calorNap ? '' : (P.tut.calorNap = true, 'Recién levantado de la siesta, entrar en calor te despabila (menú → Mochila).')) : '']);
+    backToWorld([o.k === 'sentar' ? 'Te sentaste a mirar a la gente pasar. Respirás.' : where === 'manta' ? `Siesta en la manta. Te levantás a las ${clockTxt()}, con la marca del pasto en la cara.` : `Siesta en el banco. Te levantás a las ${clockTxt()}, con el cuello torcido.`, `⚡ ${Math.round(P.energia)} · 😩 ${Math.round(P.fatiga)}`, o.night ? `🌙 A la noche te vas a dormir ${durTxt(o.night)} más tarde.` : '', o.k !== 'sentar' ? (!P.warmLearned ? 'Te levantás medio duro: el cuerpo quedó frío.' : P.tut.calorNap ? '' : (P.tut.calorNap = true, 'Recién levantado de la siesta, entrar en calor te despabila (menú → Estado).')) : '']);
   };
   if (o.k === 'sentar') return startPose('banco', 1400, fin);
   startPose(where === 'manta' ? 'manta' : 'bancosiesta', 2600, fin);
@@ -5043,7 +5046,7 @@ function useBagItem(i) {
   P.bag.splice(i, 1); eatFood(f, 'bag');
 }
 function eatFood(f, where) {
-  if (where === 'casa' && !(P.tut || {}).porcion) { P.tut.porcion = true; P.pendMsg = [P.pendMsg, 'La nutri dejó las porciones calculadas: en tu casa la cantidad la decide el plan (lo ves en la heladera). En el kiosco elegís vos.'].filter(Boolean).join(' '); }
+  if (where === 'casa' && !(P.tut || {}).porcion && P.nutriMet) { P.tut.porcion = true; P.pendMsg = [P.pendMsg, P.nutriMet ? 'La nutri dejó las porciones calculadas: en tu casa la cantidad la decide el plan (lo ves en la heladera). En el kiosco elegís vos.' : 'En casa la cantidad la decide tu vieja: lo que hace falta para arrancar. En el kiosco elegís vos.'].filter(Boolean).join(' '); }
   const pr = where === 'bag' ? 0 : where === 'hostel' ? 4 : foodPrice(f); if (!canPay(pr)) return; if (pr) money(-pr);
   if (['casa', 'hostel', 'amigo'].includes(where)) f = planPortion(f);
   markMeal(f); if (mealOf(P.min ?? 480) === 'cena' && (['casa', 'hostel', 'amigo'].includes(where) || f.carb >= 25)) P.dinnerDay = P.day;
@@ -5151,8 +5154,8 @@ const RUMOR_TXT = {
 const REVEALS = {
   npc: {
     guarda: { places: ['ruta1'] }, camionero: { places: ['alamos', 'villa'], skills: ['tictac360', 'sidepre'] }, ernesto: { places: ['ruta3', 'villa'] }, moli: { places: ['ferro'] }, irma: { places: ['ruta5', 'toscas'] }, ilda: { places: ['ruta2', 'capital', 'puerto'] },
-    vecino2: { places: ['ruta4', 'ferro'] }, payaso: { places: ['puerto'], skills: ['trampolin', 'malabares', 'verticales'] },
-    portero: { skills: ['cork'] }, rulo: { skills: ['backflip', 'sideflip', 'wallflip', 'malabares'] }, pibe: { skills: ['kongpre'] }, sasa: { skills: ['bote'] }
+    vecino2: { places: ['ruta4', 'ferro'] }, payaso: { places: ['puerto'], skills: ['trampolin', 'malabares', 'verticales'], lead: 'Pochoclo: En el circo del puerto se aprende de todo: cama elástica, malabares, verticales.' },
+    portero: { skills: ['cork'] }, rulo: { skills: ['backflip', 'sideflip', 'wallflip', 'malabares'], lead: 'Rulo: ¿Sabés qué llena la gorra? Los mortales: backflip, side flip, wall flip. Eso viene después, cuando tengas base. Y los malabares, que te los enseño yo.' }, pibe: { skills: ['kongpre'] }, sasa: { skills: ['bote'] }
   },
   sign: { [BX(59) + ',' + BY(31)]: { places: ['ruta1', 'villa'] }, '23,9': { places: ['capital'], skills: ['sidepre'] }, '3,7': { places: ['alamos'] }, '3,14': { places: ['alamos'] } }
 };
@@ -5164,7 +5167,8 @@ function applyReveal(rv, who) {
   if (!rv) return [];
   const news = [];
   for (const p of rv.places || []) if (knowPlace(p, 'rumor')) news.push(`Anotado en tu cuaderno: un lugar nuevo (${WORLD.find(n => n.id === p).name}).`);
-  for (const s of rv.skills || []) if (knowSkill(s, 'heard', who)) news.push(`Anotado: el ${SKILLS[s].name}.`);
+  const sk = (rv.skills || []).filter(s => knowSkill(s, 'heard', who)).map(s => SKILLS[s].name);
+  if (sk.length) news.push(...(rv.lead ? [rv.lead] : []), `📓 Anotado en tu cuaderno: ${sk.join(', ')}.`);
   return news;
 }
 function initKnowledge() {
@@ -5620,7 +5624,7 @@ function act(kind) {
   P.focusBonus = 0;
   if (foc) P.miedo = clamp(P.miedo + (f0 - Math.max(0, f0 - 25)), 0, 100);
   battle.anim = true;
-  const title = `${kind === 'tantear' ? '🧪 ' + s.pre : (flip ? '🤸 ' : '🎯 ') + SKILLS[s.skill].name}`;
+  const title = battle.special === 'tecnica' ? `✨ Técnica: ${SKILLS[s.skill].name}` : battle.special === 'lejos' ? `💪 Más lejos: ${SKILLS[s.skill].name}` : battle.special ? `🔁 Repasar: ${SKILLS[s.skill].name}` : `${kind === 'tantear' ? '🧪 ' + s.pre : (flip ? '🤸 ' : '🎯 ') + SKILLS[s.skill].name}`;
   const go = g => { show('battle'); if (g.abort) return actAbort(kind); if (foc) battle.focus = false; if (kind === 'intentar' && PIN_SKILLS.has(s.skill) && g.hit) return pinBalance(g.zone === 'yellow' ? 0.7 : 0.35, '⚖️ Pinchar: ' + SKILLS[s.skill].name, r => { show('battle'); actResolve(kind, s, foc, f0, odds, r.hit ? g : Object.assign({}, g, { hit: false, soft: true, unpinned: true })); }); actResolve(kind, s, foc, f0, odds, g); };
   if (flip) MINI.play('cama', { bounces: 1, tries: 1, tol: Math.round(6 + 34 * odds.p), p: odds.p, title, abortable: true }, r => go({ abort: r.abort, hit: r.hit || r.lvl === 'regular', q: r.lvl === 'perfecto' ? 1 : r.lvl === 'regular' ? 0 : r.prec, lvl: r.lvl, zone: r.lvl === 'regular' ? 'yellow' : null, soft: r.lvl === 'malo' && odds.m > -0.05 && R() < 0.55, doubt: odds.doubt }));
   else MINI.play('timing', { p: odds.p, fear: P.miedo, kind: spotKind(s), title }, r => go({ abort: r.abort, hit: r.hit, q: r.q, zone: r.zone, risk: r.risk, soft: r.zone === 'yellow' && !r.hit, doubt: odds.doubt }));
@@ -5643,13 +5647,14 @@ function actResolve(kind, s, foc, f0, odds, g) {
   const res = spotAction(P, s, kind, R, g);
   if (g && g.unpinned) res.lines.unshift('Caíste en el borde, pero no pinchó: se te fue el equilibrio.');
   if (battle.special === 'lejos' && res.result === 'ok') { const st = farStat(s); if (st === 'bj') P.bj += 0.004; else if (st) P.vj += 0.002; addPulido(P, s.skill, 2); res.lines.push('Más lejos que de costumbre: la potencia sube de a poco.'); }
+  if (battle.special === 'tecnica') { res.lines = res.result === 'ok' ? [`Lo repetís lento, cuidando cada parte del gesto.`] : res.result === 'caida' ? ['Se te desarma el gesto a mitad de camino. Más lento, otra vez.'] : res.lines; }
   if (battle.special === 'tecnica' && res.result === 'ok') { P.tec = clamp(P.tec + 0.15, 0, 100); addPulido(P, s.skill, 2); res.lines.push('Gesto prolijo: el skill se pule.'); }
   if (battle.special) res.lines.push(repLeft(s) > 0 ? `Te quedan ${repLeft(s)} por hoy.` : 'Por hoy ya está con este: mañana seguís.');
   P.focusBonus = 0; battle.fx = [P.fatiga - f1, P.miedo - m1];
   if (foc) P.miedo = clamp(P.miedo + (f0 - Math.max(0, f0 - 25)), 0, 100);
   const extra = []; digestPenalty(extra); energyDip(extra);
   battle.anim = true; renderBattle();
-  const move = kind === 'tantear' ? 'tantear:' + s.skill : s.skill;
+  const move = kind === 'tantear' && battle.special !== 'tecnica' ? 'tantear:' + s.skill : s.skill;
   ANIM.play(cv2, spotKind(s), move, res.result === 'ok', colP(), () => {
     battle.anim = false;
     battle.log.push(...res.lines, ...extra);
@@ -6936,7 +6941,7 @@ function enterGym() {
   held = null; moving = null; useMap('gimnasio'); P.map = 'gimnasio'; P.pos = { x: 7, y: 8, dir: 'up' }; moveCoach(7, 5, 'down'); save(); renderHud(); show('world');
   P.tut = P.tut || {};
   if (!P.tut.gymTour) return gymTour(0);
-  { const gw = P.day >= 3 ? gabyTeachWarmup() : null; if (gw) return playCut('calorGaby', () => { show('world'); say(gw); }); }
+  { const gw = P.day >= 3 ? gabyTeachWarmup() : null; if (gw) return playCut('calorGaby', () => { show('world'); say(['Gaby: Eso. Antes de exigirte, siempre: a la mañana o cuando te levantás de una siesta.', ...gw.slice(1)]); }); }
   if (!P.tut.rollerNews) { P.tut.rollerNews = true; if (!P.tut.roller) return say(['Gaby: ¡Vení! Llegó un foam roller: está en el rincón, al lado de la bici. Sirve para soltar las piernas.']); }
   P.gymSeen = P.gymSeen || {};
   const nuevo = Object.entries(SESSIONS).find(([k, s]) => s.need && P.level >= s.need && !P.gymSeen[k]);
@@ -10403,7 +10408,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.68 Alpha';
+const ALPHA_V = '0.69 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
