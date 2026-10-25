@@ -14,7 +14,7 @@
 }
 [hidden] { display: none !important; }
 html, body { background: var(--bg); color: var(--box); }
-body { font-family: var(--txt); font-size: 20px; line-height: 1.15; padding-inline: 12px; padding-block: 12px 32px; margin: 0; }
+body { font-family: var(--txt); font-size: 20px; line-height: 1.15; padding-inline: 12px; padding-block: calc(12px + env(safe-area-inset-top)) calc(32px + env(safe-area-inset-bottom)); margin: 0; }
 .wrap { max-width: 980px; margin-inline: auto; }
 h1, h2, h3 { font-family: var(--pix); margin: 0; line-height: 1; text-wrap: balance; }
 small { color: var(--muted); }
@@ -6444,6 +6444,8 @@ function pressB() {
   if (['menu', 'wmap', 'mmap', 'place', 'gym', 'house'].includes(scr)) { const sc = document.getElementById(scr), back = sc.querySelector('[data-back], #m-quit') || [...sc.querySelectorAll('button')].find(b => /^(Salir|Volver|Cerrar)/.test(b.textContent.trim())); if (back && scr !== 'menu') back.click(); else backToWorld(); }
 }
 document.addEventListener('keydown', e => {
+  // en las notas, el editor y cualquier cuadro de texto se escribe: el juego no toca las teclas
+  if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable || (e.target.tagName === 'INPUT' && e.target.type !== 'text' && e.target.type !== 'range') || (e.target.closest && e.target.closest('#al-ov, #ed-root, #ed-dlg')))) return;
   // en el campo de nombre se escribe; arriba/abajo o Enter pasan al siguiente control (compu y celular)
   if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'text' && e.target.offsetParent !== null) { if (['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) { e.preventDefault(); navMove(e.key === 'ArrowUp' ? 'up' : 'down'); } return; }
   const scr = curScreen(), k = e.key;
@@ -7939,7 +7941,8 @@ const PLAN_NAME = { mantener: 'mantener', deficit: 'déficit moderado', volumen:
 const WINDOWS = [['desayuno', 300, 690, 12], ['almuerzo', 690, 930, 12], ['merienda', 930, 1170, 6]];
 // la porción del plan: lo que te falta para llegar a la energía que pide el plan (déficit, mantener o volumen)
 function planPortion(f) {
-  const e0 = P.energia ?? 60, carb = Math.round(clamp((PLAN_TARGET[P.plan || 'mantener'] || 85) - e0, 8, f.carb * 1.4)), k = carb / Math.max(1, f.carb);
+  // el plan marca cuánto te falta; cada plato lo cubre según lo que rinde (la fruta rinde poco, la avena o los fideos más)
+  const e0 = P.energia ?? 60, rinde = clamp(f.carb / 30, 0.6, 1.25), carb = Math.round(clamp(Math.max(8, (PLAN_TARGET[P.plan || 'mantener'] || 85) - e0) * rinde, 5, f.carb * 1.4)), k = carb / Math.max(1, f.carb);
   return Object.assign({}, f, { carb, energia: f.energia * k, heavy: f.heavy * k, grasa: f.grasa * k, plan: true });
 }
 function markMeal(f) {
@@ -9884,8 +9887,10 @@ function occluders(c, objs, px, py) {
 }
 // nadie se para justo detrás de un árbol (quedaría tapado): se corre un lugar al costado o hacia arriba
 for (const k in MAPS) { const M = MAPS[k]; if (M.indoor || !M.trees) continue; const T = new Set(M.trees.map(([a, b]) => a + ',' + b));
-  for (const n of M.npcs || []) { if (!T.has(n.x + ',' + (n.y + 1))) continue;
-    for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [-1, -1], [1, -1]]) { const X = n.x + dx, Y = n.y + dy; if (Y < 0 || X < 0 || X >= M.MW || M.blocked[Y][X] || T.has(X + ',' + (Y + 1)) || (M.exits || []).some(e => e.x === X && e.y === Y)) continue; M.blocked[n.y][n.x] = false; n.x = X; n.y = Y; M.blocked[Y][X] = true; break; } } }
+  // la copa es alta (dos baldosas) y ancha: tapa a quien esté hasta dos lugares arriba del tronco
+  const hid = (X, Y) => T.has(X + ',' + (Y + 1)) || T.has(X + ',' + (Y + 2)) || T.has((X - 1) + ',' + (Y + 1)) || T.has((X + 1) + ',' + (Y + 1));
+  for (const n of M.npcs || []) { if (!hid(n.x, n.y)) continue;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [-2, 0], [2, 0], [0, -1], [-1, -1], [1, -1], [0, -2], [0, 1], [-1, 1], [1, 1]]) { const X = n.x + dx, Y = n.y + dy; if (Y < 0 || X < 0 || X >= M.MW || Y >= M.MH || M.blocked[Y][X] || hid(X, Y) || T.has(X + ',' + Y) || (M.exits || []).some(e => e.x === X && e.y === Y)) continue; M.blocked[n.y][n.x] = false; n.x = X; n.y = Y; M.blocked[Y][X] = true; break; } } }
 // las alfombras van siempre abajo de todo; el resto de lo fijo, de arriba hacia abajo
 for (const k in MAPS) { const M = MAPS[k]; if (!M.decor) continue; const flat = d => ['rug', 'mat', 'gfloor'].includes(d.kind) ? 0 : 1; M.decor.sort((a, b) => flat(a) - flat(b) || a.y - b.y); M.canvas = null; }
 // tu casa: la ventana de la izquierda chocaba con el horno y el mapa grande con el plan de entrenamiento
@@ -10398,7 +10403,7 @@ if (typeof curMap !== 'undefined' && MAPS[curMap]) useMap(curMap);
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.67 Alpha';
+const ALPHA_V = '0.68 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10503,7 +10508,28 @@ const AL = (() => {
     const b1 = el('button', 'startbtn', '<b>🗺️ Editor de mapas</b><span>Armá o modificá lugares, y probalos caminando</span>'); b1.id = 't-editor'; b1.onclick = () => { if (typeof ED !== 'undefined') ED.open(); }; m.appendChild(b1);
     const b2 = el('button', 'startbtn', '<b>📝 Notas y exportar</b><span>Tus notas de prueba, la partida y todo junto para Claude</span>'); b2.id = 't-alpha'; b2.onclick = () => open(); m.appendChild(b2);
   } }
-  return { open, close, getNotes, exportAll, shareText, copyText, context };
+  // ---- cartel grande cada vez que dominás un skill nuevo (venga de un spot, un oficio, un regalo o una leyenda) ----
+  { const bcss = document.createElement('style'); bcss.textContent = `
+    .sk-ban { position: fixed; left: 50%; top: calc(18% + env(safe-area-inset-top)); transform: translate(-50%, -20px) scale(.8); opacity: 0; z-index: 120; pointer-events: none; text-align: center;
+      background: #ffd23f; color: #283050; border: 4px solid #283050; border-radius: 12px; box-shadow: 0 6px 0 #0d1320, 0 0 0 9999px rgba(13,19,32,.25); padding: 12px 26px 14px; transition: transform .28s cubic-bezier(.2,1.6,.4,1), opacity .2s; max-width: 86vw; }
+    .sk-ban.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    .sk-ban small { display: block; font: 700 14px var(--pix, monospace); letter-spacing: 2px; }
+    .sk-ban b { display: block; font: 700 30px var(--pix, monospace); margin-top: 4px; }`; document.head.appendChild(bcss); }
+  let skSeen = null, skOwner = null; const skQ = [];
+  function banner(name) {
+    const d = el('div', 'sk-ban', `<small>🏅 DOMINASTE</small><b>${esc(name)}</b>`); document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('on')); setTimeout(() => d.classList.remove('on'), 2600); setTimeout(() => { d.remove(); if (skQ.length) banner(skQ.shift()); }, 2900);
+  }
+  setInterval(() => {
+    if (typeof P === 'undefined' || !P || !P.skills) { skOwner = null; return; }
+    const have = Object.keys(P.skills).filter(k => P.skills[k]);
+    if (skOwner !== P) { skOwner = P; skSeen = new Set(have); return; } // partida recién cargada: lo que ya sabías no se anuncia
+    const fresh = have.filter(k => !skSeen.has(k)); have.forEach(k => skSeen.add(k));
+    if (!fresh.length || fresh.length > 3 || P.explore) return; // "aprender todos" del modo prueba no llena la pantalla de carteles
+    const names = fresh.map(k => (typeof SKILLS !== 'undefined' && SKILLS[k] ? SKILLS[k].name : k));
+    if ($('.sk-ban')) skQ.push(...names); else { banner(names[0]); skQ.push(...names.slice(1)); }
+  }, 300);
+  return { open, close, getNotes, exportAll, shareText, copyText, context, banner };
 })();
 
 // ================= EDITOR DE MAPAS (v0.65) =================
@@ -10834,12 +10860,12 @@ const isLand = () => LAND_MQ.matches;
   body.land .al-fab { top: calc(4px + env(safe-area-inset-top)); bottom: auto; right: auto; left: calc(50% + 120px); width: 34px; height: 28px; font-size: 14px; opacity: .6; box-shadow: none; border-width: 2px; }
   /* ventanas de opciones: texto a la izquierda (con scroll), botones siempre a la vista a la derecha */
   body.land .modal { padding: 8px calc(8px + env(safe-area-inset-right)) 8px calc(8px + env(safe-area-inset-left)); place-items: center; }
-  body.land .modal .sheet { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); column-gap: 16px; width: min(94vw, 860px); max-height: calc(100dvh - 16px); box-sizing: border-box; font-size: 16px; }
+  body.land .modal .sheet { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, 42%); grid-template-rows: auto minmax(0, 1fr); column-gap: 16px; width: min(94vw, 860px); max-height: calc(100dvh - 16px); box-sizing: border-box; font-size: 16px; }
   body.land #m-title { grid-column: 1; margin: 0 0 4px; font-size: 18px; }
   body.land #m-body { grid-column: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
   body.land #m-body p { margin: 0 0 6px; }
   body.land #m-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; justify-content: center; gap: 8px; overflow-y: auto; max-height: calc(100dvh - 40px); padding: 2px 10px 2px 0; }
-  body.land #m-acts .btn { white-space: nowrap; }
+  body.land #m-acts .btn { white-space: normal; width: 100%; font-size: 15px; padding: 8px 10px; }
   body.land[data-overlay="1"] .controls .abtns { display: none; }
   body.land:not([data-screen-now="world"]):not([data-screen-now="mini"]) .controls .abtns { display: none; } /* fuera del mapa y del minijuego, las opciones se tocan directo */
   /* el spot en dos columnas: a la izquierda el spot y la escena, a la derecha tu estado, el relato y las opciones */
