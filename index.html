@@ -3149,7 +3149,7 @@ const MINI = (() => {
           if (Math.random() < 0.015) bias = -bias * (0.7 + Math.random() * 0.6);
           if (Math.random() < 0.04) v += (Math.random() - 0.5) * kick; // temblores: cuanto más avanzás, más finos tienen que ser los ajustes
           v += (th * 1.7 + bias * 0.8 + steerDir() * 2.6) * dt; v *= 0.98; th += v * dt;
-          if (Math.abs(th) < zw) { hold += dt * 1000; best = Math.max(best, hold); } else hold = 0;
+          if (Math.abs(th) < zw) { hold += dt * 1000; best = Math.max(best, hold); } else hold = Math.max(0, hold - dt * 1000 * 2.5); // salirte del verde te descuenta rápido, no te borra todo
           const el = now - pt;
           if (hold >= HOLD) { succ++; res.push(true); phase = 'end'; pt = now; sfx('ok'); fb('¡5 segundos! Clavada', 'good'); }
           else if (Math.abs(th) >= 1) { fell = true; th = Math.sign(th); res.push(false); part += best / HOLD; phase = 'end'; pt = now; sfx('bump'); fb('Rodaste. Otra', 'bad'); }
@@ -3391,7 +3391,22 @@ let LAMPS = [[3, 12], [10, 14], [23, 9], [30, 12], [23, 20], [12, 17]];
 for (const [x, y] of LAMPS) { decor.push({ kind: 'lamp', x, y }); blocked[y][x] = true; }
 for (const [x, y] of [[12, 6], [24, 10], [31, 24], [3, 25], [9, 10], [33, 8]]) { decor.push({ kind: 'bush', x, y }); blocked[y][x] = true; }
 npcs.push({ id: 'vecina', x: 10, y: 7, dir: 'down', shirt: '#8a5aa8', hair: '#d8d8d8', pants: '#4a4a5a',
-  lines: () => [P.rep >= 15 ? 'Vecina: ¡Todo el barrio habla de vos! El del kiosco dice que te va a hacer precio.' : 'Vecina: Te vi saltando el banco de la plaza.', 'Vecina: Tu vieja te deja la mesada los días 1, 8, 15... Gastala bien.', 'Vecina: Si te va bien en los torneos, el club del barrio da becas. Preguntá en el Cartel de tu menú.'] });
+  lines: () => vecinaLines() });
+// la vecina: la primera vez te cuenta lo básico; después, una cosa por día según cómo te ve
+const VECINA_DIA = ['Vecina: En mis tiempos los chicos se trepaban a los árboles de esta plaza. Ustedes ahora se trepan a todo lo demás.', 'Vecina: El kiosquero dice que los que compran gaseosa antes de entrenar después vuelven a comprar más. Algo sabrá.', 'Vecina: El baldío de la vuelta antes era una cancha. Ahora es de ustedes.', 'Vecina: Mi nieto también quiere saltar. Le dije que primero aprenda a caer, como vos.', 'Vecina: Los domingos a la mañana la plaza está vacía. Si querés tranquilidad, es la hora.', 'Vecina: Me dijeron que la nutricionista de la salita es buenísima. Yo fui por el colesterol.', 'Vecina: Rulo vive de la gorra hace años. Los viernes a la noche junta más que en toda la semana.', 'Vecina: ¿Sabías que el del gimnasio, Gaby, también saltaba? Se rompió la rodilla y se puso a enseñar.'];
+function vecinaLines() {
+  P.vecina = P.vecina || {};
+  if (!P.vecina.met) { P.vecina.met = P.day; return [P.rep >= 15 ? 'Vecina: ¡Todo el barrio habla de vos! El del kiosco dice que te va a hacer precio.' : 'Vecina: Te vi saltando el banco de la plaza.', 'Vecina: Tu vieja te deja la mesada los días 1, 8, 15... Gastala bien.', 'Vecina: Si te va bien en los torneos, el club del barrio da becas. Preguntá en el Cartel de tu menú.']; }
+  if (P.vecina.day === P.day) return ['Vecina: ¡Otra vez vos! Andá a entrenar, que se te va el día.'];
+  P.vecina.day = P.day;
+  const h = (P.history || []).slice(-1)[0];
+  if (P.lesion) return ['Vecina: ¿Y esa cara? Me dijeron que te lastimaste. Hacele caso al kine, no seas cabeza dura.'];
+  if ((P.lateRun || 0) >= 1) return ['Vecina: Anoche vi la luz de tu pieza prendida hasta tardísimo. ¿Vos dormís algo?'];
+  if (h && h.time != null && P.day - h.day <= 2 && P.vecina.told !== h.day) { P.vecina.told = h.day; return [h.place && h.place <= 3 ? 'Vecina: ¡Me contaron que hiciste podio! Le dije a todo el mundo que yo te vi empezar.' : 'Vecina: Me contaron lo del torneo. No importa: el que sigue yendo es el que llega.']; }
+  if (P.fatiga > 60) return ['Vecina: Tenés una cara de cansado... ¿Comiste? ¿Dormiste? Descansar también es entrenar, eso lo sé hasta yo.'];
+  P.vecina.i = ((P.vecina.i ?? -1) + 1) % VECINA_DIA.length;
+  return [VECINA_DIA[P.vecina.i]];
+}
 npcs.push({ id: 'pibe', x: 20, y: 16, dir: 'left', shirt: '#2f8f6a', hair: '#3a2a1a', pants: '#2a3550',
   lines: () => P.skills.kongpre ? ['Pibe: ¿Clavaste los bloques? Ahora en el torneo tenés la línea corta. Usala.'] :
     ['Pibe: ¿Fuiste a la Plaza del Oeste? Saliendo por la calle del oeste, a 25 minutos. Los bloques escalonados de ahí te enseñan el kong precision: la línea más rápida del torneo.', 'Pibe: Y en el baldío de acá aprendé a rolar. Primero se aprende a caer.'] });
@@ -5814,7 +5829,9 @@ const TRICK_NEEDS = { wallflip: 'pared', wallrun: 'pared', catleap: 'pared', tic
 const NEED_TXT = { pared: 'no hay pared', valla: 'no hay banco ni baranda', borde: 'no hay bordes ni escalones', barras: 'no hay barras' };
 const trickNeed = k => TRICK_NEEDS[k] || 'suelo';
 // el público se aburre: el mismo truco en la misma gorra, el mismo día, paga cada vez menos
-function showSeen(gz, k) { if (!P.showLog || P.showLog.day !== P.day) P.showLog = { day: P.day, k: {} }; return P.showLog.k[gz + ':' + k] || 0; }
+// la gente de la noche no es la de la tarde: a la noche el "ya lo vieron" arranca de cero
+const showDay = () => P.day + (P.slot === 2 ? 'n' : '');
+function showSeen(gz, k) { if (!P.showLog || P.showLog.day !== showDay()) P.showLog = { day: showDay(), k: {} }; return P.showLog.k[gz + ':' + k] || 0; }
 function showMark(gz, k) { showSeen(gz, k); P.showLog.k[gz + ':' + k] = (P.showLog.k[gz + ':' + k] || 0) + 1; }
 const boredF = n => 1 / (1 + 0.6 * n);
 function startShow(gz) {
@@ -7524,6 +7541,8 @@ function closeClasif(myTime) {
 }
 function leaveVenue(lines) {
   setClock(Math.max(P.min, 1200));
+  // si corriste adentro del polideportivo (o del estadio), salís por la puerta al mapa de afuera
+  if (MAPS[curMap].indoor) { const bf = P.backFrom || { map: 'barrio', x: BX(28), y: BY(22) }; useMap(bf.map); P.map = bf.map; P.pos = { x: bf.x, y: bf.y, dir: 'down' }; save(); return backToWorld(lines); }
   P.pos = curMap === 'villa' ? { x: 28, y: 24, dir: 'down' } : curMap === 'capital' ? { x: 35, y: 27, dir: 'down' } : { x: BX(28), y: BY(22), dir: 'down' };
   save(); backToWorld(lines);
 }
@@ -8072,7 +8091,9 @@ function callContact(who) {
 }
 function greet(who) { const tr = (P.friends || {})[who] || 0; return tr >= 2 ? '¡Qué hacés! Justo pensaba en vos.' : tr < 0 ? 'Ah, sos vos.' : '¿Todo bien?'; }
 function chatLine(who) {
-  const L = { 'Mamá': ['¿Estás comiendo bien? No me mientas.', 'Acordate de dormir. Te quiero.'], Gaby: ['Si querés, mañana te armo algo suave.', 'Lo que no se descansa no se entrena.'], Nacho: ['Escuchá al cuerpo antes de que te grite.', 'Si algo te tira, vení antes, no después.'], Vago: ['El cemento enseña, pero no hace falta que te enseñe todo a vos.', 'Mirá a los que saltan bien: cómo caen, no cómo vuelan.'] };
+  const L = { 'Mamá': ['¿Estás comiendo bien? No me mientas.', 'Acordate de dormir. Te quiero.'], Gaby: ['Si querés, mañana te armo algo suave.', 'Lo que no se descansa no se entrena.'], Nacho: ['Escuchá al cuerpo antes de que te grite.', 'Si algo te tira, vení antes, no después.'], Vago: ['El cemento enseña, pero no hace falta que te enseñe todo a vos.', 'Mirá a los que saltan bien: cómo caen, no cómo vuelan.'],
+    Valen: ['¿Cómo dormiste? Lo pregunto en serio: el miedo se agranda cuando estás cansado.', 'Antes de un salto que te asusta, no te digas "no tengo miedo". Decite qué vas a hacer: manos, pies, mirada.', 'El miedo no es el enemigo: es información. El problema es cuando decide por vos.', 'Si hoy no saliste a entrenar, no pasa nada. Fijate si fue descanso o fue evitar. Son cosas distintas.', 'Contame algo que te haya salido bien esta semana. Aunque sea chiquito.'],
+    Pato: ['¿Cuándo volvés a pasar por acá? La cama sigue armada.', 'Acá todo tranquilo. Vino gente preguntando por vos.'], Mara: ['¿Cuándo volvés? Te guardo un lugar.', 'Por acá llovió toda la semana. Los spots están resbalosos.'], Beto: ['Cuando vuelvas, avisá y te espero con algo para comer.', 'Acá seguimos. ¿Cómo va el entrenamiento?'] };
   const l = L[who] || ['¿Salimos a entrenar un día de estos?', 'Vi un spot nuevo, después te paso la ubicación.', 'Estoy hecho bolsa, pero contento.'];
   return l[Math.floor(R() * l.length)];
 }
@@ -10509,10 +10530,24 @@ function lateNightLines(bed) {
   return out;
 }
 
+// ---- rescate: si una partida quedó con el personaje fuera del mapa (pasó al salir del polideportivo después de la clasificatoria), lo devolvés a la puerta ----
+function rescuePos() {
+  if (!P || !P.pos) return false;
+  const M = MAPS[P.map || curMap]; if (!M) return false;
+  const W = M.MW || (M.ground && M.ground[0] && M.ground[0].length) || 0, H = M.MH || (M.ground && M.ground.length) || 0;
+  const { x, y } = P.pos; if (x >= 0 && y >= 0 && x < W && y < H && !(M.blocked && M.blocked[y] && M.blocked[y][x])) return false;
+  if (M.indoor) { const bf = P.backFrom || { map: 'barrio', x: BX(28), y: BY(22) }; useMap(bf.map); P.map = bf.map; P.pos = { x: bf.x, y: bf.y, dir: 'down' }; }
+  else P.pos = Object.assign({ dir: 'down' }, homePos());
+  save(); return true;
+}
+{ const _cg = continueGame;
+  continueGame = function () { const r = _cg.apply(this, arguments); if (rescuePos()) { renderHud(); show('world'); } return r; };
+}
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.70.1 Alpha';
+const ALPHA_V = '0.71 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
