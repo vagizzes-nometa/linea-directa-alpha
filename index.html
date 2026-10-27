@@ -10623,7 +10623,7 @@ const MOD_TYPES = ['m_barras', 'm_esc', 'm_muro'];
 
 // ---- La pista adentro (v0.74): en el polideportivo, el estadio y el gimnasio la pista ya no es una franja en el piso,
 // es una fila de módulos de verdad, uno detrás del otro (rampa, cubos, caños, escalonado y drop, muro con alero, llegada).
-const MOD_RUN_LONG = ['start', 'ramp', 'cube', 'run', 'bars', 'run', 'esc', 'drop', 'run', 'muro', 'run', 'cube', 'bars', 'run', 'esc', 'drop', 'run', 'finish'];
+const MOD_RUN_LONG = ['start', 'ramp', 'cube', 'run', 'bars', 'run', 'esc1', 'esc2', 'drop', 'run', 'muro', 'run', 'cube', 'bars', 'run', 'esc1', 'esc2', 'drop', 'finish'];
 function modTrack(mapId, id, y, x0, x1, seq) {
   const M = MAPS[mapId]; if (!M) return;
   for (let i = M.props.length - 1; i >= 0; i--) { const p = M.props[i]; if (p.id === id && p.y === y) { M.props.splice(i, 1); if (M.blocked[y]) M.blocked[y][p.x] = false; } }
@@ -10635,11 +10635,11 @@ modTrack('poliint', 'pista', 6, 2, 13);
 // el estadio: una pista larga en el medio
 modTrack('estadioint', 'pista', 7, 2, 18);
 // el gimnasio: la pista de práctica, corta
-modTrack('gimnasio', 'st-track', 6, 9, 11, ['cube', 'bars', 'esc']);
+modTrack('gimnasio', 'st-track', 6, 9, 11, ['bars', 'esc1', 'esc2']);
 
-// dibujo de cada baldosa de la pista: piso de goma con línea, y el módulo parado en perspectiva (alto ≈ 6 px por metro)
+// dibujo de cada baldosa de la pista: piso de goma con línea, y el módulo parado en perspectiva (9 px por metro: grandes, para que la pista se lea)
 function drawModTile(c, p) {
-  const px = p.x * TS, py = p.y * TS, base = py + 13, k = 6;
+  const px = p.x * TS, py = p.y * TS, base = py + 13, k = 9;
   c.fillStyle = '#c0563b'; c.fillRect(px, py + 4, 16, 11); c.fillStyle = '#a8462f'; c.fillRect(px, py + 14, 16, 1);
   c.fillStyle = 'rgba(248,244,227,.7)'; for (let i = 1; i < 16; i += 5) c.fillRect(px + i, py + 9, 3, 1);
   const box = (x, w, h, col = '#34405a', top = '#4d5d80') => { const hp = Math.round(h * k); c.fillStyle = '#1f2638'; c.fillRect(x - 1, base - hp - 5, w + 2, hp + 6); c.fillStyle = col; c.fillRect(x, base - hp, w, hp); c.fillStyle = top; c.fillRect(x, base - hp - 4, w, 4); c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x, base - hp - 4, w, 1); };
@@ -10647,12 +10647,14 @@ function drawModTile(c, p) {
   switch (p.m) {
     case 'start': c.fillStyle = '#f8f4e3'; c.fillRect(px + 7, py + 4, 2, 11); break;
     case 'finish': for (let yy = 0; yy < 11; yy += 2) for (let xx = 0; xx < 4; xx += 2) { c.fillStyle = (yy / 2 + xx / 2) % 2 ? '#283050' : '#f8f4e3'; c.fillRect(px + 6 + xx, py + 4 + yy, 2, 2); } break;
-    case 'ramp': for (let i = 0; i < 14; i++) { const h = Math.round(i / 14 * 1.2 * k); c.fillStyle = yel; c.fillRect(px + 1 + i, base - h - 4, 1, h + 4); c.fillStyle = yelD; c.fillRect(px + 1 + i, base - 1, 1, 1); } break;
-    case 'cube': box(px + 2, 12, 1.2); break;
-    case 'bars': { box(px + 2, 12, 0.4); const ty = base - Math.round(1.4 * k) - 4; c.fillStyle = '#9aa3ad'; c.fillRect(px + 3, ty, 1, Math.round(1.0 * k) + 2); c.fillRect(px + 12, ty, 1, Math.round(1.0 * k) + 2); c.fillStyle = yel; c.fillRect(px + 1, ty, 14, 1); c.fillRect(px + 1, ty + 3, 14, 1); break; }
+    case 'ramp': for (let i = 0; i < 15; i++) { const h = Math.round(i / 15 * 1.2 * k); c.fillStyle = yel; c.fillRect(px + 1 + i, base - h - 4, 1, h + 4); c.fillStyle = yelD; c.fillRect(px + 1 + i, base - 1, 1, 1); } break;
+    case 'cube': box(px + 1, 14, 1.2); break;
+    case 'bars': { box(px + 1, 14, 0.4); const ty = base - Math.round(1.4 * k) - 4; c.fillStyle = '#9aa3ad'; c.fillRect(px + 3, ty, 1, Math.round(1.0 * k) + 2); c.fillRect(px + 12, ty, 1, Math.round(1.0 * k) + 2); c.fillStyle = yel; c.fillRect(px + 1, ty, 14, 1); c.fillRect(px + 1, ty + 3, 14, 1); break; }
     case 'esc': box(px + 1, 7, 1.2); box(px + 8, 7, 2.2); break;
-    case 'drop': for (let i = 0; i < 10; i++) { const h = Math.round((1 - i / 10) * 2.2 * k); c.fillStyle = i % 2 ? yel : yelD; c.fillRect(px + i, base - h - 4, 1, h + 4); } break;
-    case 'muro': { box(px + 3, 11, 1.2); const hp = Math.round(1.2 * k), mh = Math.round(0.8 * k); c.fillStyle = '#1f2638'; c.fillRect(px, base - hp - mh - 5, 15, mh + 2); c.fillStyle = yel; c.fillRect(px + 1, base - hp - mh - 4, 13, mh); c.fillStyle = yelD; c.fillRect(px + 1, base - hp - 5, 13, 1); break; }
+    case 'esc1': box(px + 1, 15, 1.2); break; // el escalonado ocupa dos baldosas, como el módulo real (2,44 m)
+    case 'esc2': box(px, 15, 2.2); c.fillStyle = '#5a6a90'; c.fillRect(px, base - Math.round(2.2 * k) - 4, 1, Math.round(1.0 * k)); break;
+    case 'drop': for (let i = 0; i < 12; i++) { const h = Math.round((1 - i / 12) * 2.2 * k); c.fillStyle = i % 2 ? yel : yelD; c.fillRect(px + i, base - h - 4, 1, h + 4); } break;
+    case 'muro': { box(px + 3, 12, 1.2); const hp = Math.round(1.2 * k), mh = Math.round(0.8 * k); c.fillStyle = '#1f2638'; c.fillRect(px, base - hp - mh - 5, 16, mh + 2); c.fillStyle = yel; c.fillRect(px + 1, base - hp - mh - 4, 14, mh); c.fillStyle = yelD; c.fillRect(px + 1, base - hp - 5, 14, 1); break; }
     default: break;
   }
 }
@@ -10663,7 +10665,7 @@ function drawModTile(c, p) {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.74 Alpha';
+const ALPHA_V = '0.74.1 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
