@@ -2115,6 +2115,7 @@ const CUT = (() => {
       return [
         { d: 4200, text: 'Valen te escribe: "¿Tenés un rato? Te quiero mostrar algo. Estoy en la orilla del lago."', draw: (g, t) => { sea(g, t, 4, 120); ANIM.fig(g, 70, 112, 'stand', col); ANIM.fig(g, 160, 112 - (Math.floor(t / 700) % 2), 'stand', V); } },
         { d: 5600, text: '—¿Viste cuando algo te pega y sentís que te sube todo? Es una ola. Sube, llega arriba y baja sola.', draw: (g, t) => { const u = (t % 4200) / 4200, h = 36 * (u < 0.35 ? u / 0.35 : 1 - (u - 0.35) / 0.65); sea(g, t, h, 120); ANIM.fig(g, 30, 112, 'stand', col); ANIM.fig(g, 210, 112, 'stand', V); } },
+        { d: 7600, text: '—Fijate cómo viene: pasa algo, vos pensás algo de eso, el cuerpo reacciona y te dan ganas de hacer algo. Recién ahí decidís.', draw: (g, t) => { const u = Math.min(1, t / 6000), cx = 40 + u * 150; sea(g, t, 26, cx); const tags = [['pasa algo', 30], ['lo que pensás', 80], ['el cuerpo', 130], ['las ganas', 180]]; g.font = 'bold 8px monospace'; g.textAlign = 'center'; tags.forEach(([s, x0], i) => { if (t > 900 + i * 1300) { const lb = (i + 1) + ' ' + s, w = Math.ceil(g.measureText(lb).width) + 8, x = Math.max(w / 2 + 3, Math.min(W - w / 2 - 3, x0 + 12)), y = 14 + (i % 2) * 13; g.fillStyle = 'rgba(248,244,227,.92)'; g.fillRect(Math.round(x - w / 2), y, w, 11); g.fillStyle = '#283050'; g.fillText(lb, x, y + 8); } }); if (t > 6200) { { const lb = '5 ¿y ahora?', w = Math.ceil(g.measureText(lb).width) + 8; g.fillStyle = '#ffd23f'; g.fillRect(W - w - 4, 42, w, 11); g.fillStyle = '#283050'; g.fillText(lb, W - 4 - w / 2, 50); } } ANIM.fig(g, 18, 112, 'stand', col); ANIM.fig(g, 210, 112, 'stand', V); } },
         { d: 5600, text: '—Cuanto más cansado, con hambre o mal dormido llegás, más alta te pega. El mismo chisme, la misma caída: otra ola.', draw: (g, t) => { const big = Math.floor(t / 2400) % 2, h = big ? 48 : 18; sea(g, t, h, 120); g.fillStyle = '#283050'; g.font = 'bold 9px monospace'; g.textAlign = 'center'; g.fillText(big ? 'cansado y con hambre' : 'descansado', 120, 26); ANIM.fig(g, 30, 112, 'stand', col); ANIM.fig(g, 210, 112, 'stand', V); } },
         { d: 6000, text: '—Lo que hacés arriba decide. Si te tirás de cabeza, te revuelca. Si la dejás pasar, pasa.', draw: (g, t) => { const u = Math.min(1, (t % 4000) / 3200), cx = 40 + u * 160, h = 30; sea(g, t, h, cx); const x = cx + 6; ANIM.fig(g, x, crestY(h, cx, x) + 1, Math.floor(t / 4000) % 2 ? 'tuck' : 'stand', col); ANIM.fig(g, 210, 112, 'stand', V); } },
         { d: 6000, text: '—No te digo que no sientas nada: a veces la bronca empuja. Pero mirala antes de subirte. Cuando la tengas encima, la vas a ver arriba tuyo.', draw: (g, t) => { sea(g, t, 4, 120); ANIM.fig(g, 100, 112, 'stand', col); const u = Math.min(1, t / 1500), h = Math.round(6 * Math.sin(Math.min(1, (t % 3000) / 3000) * Math.PI)); icon(g, 96, 82 - u * 4, Math.max(1, h)); ANIM.fig(g, 150, 112, 'stand', V); } }
@@ -5636,7 +5637,7 @@ function act(kind) {
   if (!(P.tut || {})[intro] && !MINI.isOff()) { P.tut[intro] = true; return ask(flip ? '🤸 La rosca de giro' : '🎯 La barra de timing', MINI_INTRO[intro], [{ label: '¡Dale!', primary: true, fn: () => act(kind) }]); }
   const f0 = P.miedo, foc = battle.focus && kind === 'intentar';
   if (foc) P.miedo = Math.max(0, P.miedo - 25);
-  P.focusBonus = (battle.visual ? 0.015 : 0) + (foc ? 0.01 : 0) - (battle.special === 'lejos' ? 0.06 : 0);
+  P.focusBonus = (battle.visual ? 0.015 : 0) + (foc ? 0.01 : 0) - (battle.special === 'lejos' ? 0.06 : 0) - (blindJump(kind) ? 0.03 : 0);
   // el intento se juega: las zonas (o la ventana del giro) salen de la probabilidad real
   const odds = spotOdds(P, s, kind, R);
   P.focusBonus = 0;
@@ -5651,8 +5652,14 @@ const MINI_INTRO = {
   introBarra: ['La aguja va y viene por la barra. Apretá A (o tocá) para frenarla.', '🟩 Verde: seguro, sale. 🟨 Amarillo: posible, puede salir o no. 🟥 Rojo: no llegás y te golpeás.', 'Cuanto mejor te da el cuerpo, más grandes las zonas. El miedo acelera la aguja.', 'Si no te convence, apretá B (o "Abortar") y frenás a tiempo, sin golpe. Pero cada ida y vuelta la aguja va más rápido y, si te caés, te golpeás más.'],
   introRosca: ['Primero tocá en el despegue. En el aire, la rosca de giro marca cuánto rotaste.', 'Tocá para abrir cuando la marca llega arriba: 🟩 verde caés parado (el centro finito es perfecto), 🟨 amarillo caés agachado, 🟥 rojo caés mal.', 'Caer mal no siempre es golpe: si estuviste cerca, te sentás en el pasto y te reís.', 'Antes del despegue podés apretar B y no tirarte.']
 };
+// saltar sin haber medido: la barra te dice menos de lo que es, y si caés no sabías dónde
+function blindJump(kind) { return kind === 'intentar' && battle && battle.spot && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':' + P.level] || 0) < 100; }
 function actAbort(kind) {
-  battle.anim = false; battle.mins = (battle.mins || 0) + 5; P.fatiga = clamp(P.fatiga + 1, 0, 100); P.miedo = clamp(P.miedo + 1.5, 0, 100);
+  battle.anim = false; battle.mins = (battle.mins || 0) + 5; P.fatiga = clamp(P.fatiga + 1, 0, 100);
+  // abortar sin haber medido es dudar sin información: el miedo crece más, y más cada vez
+  const blind = kind === 'intentar' && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':' + P.level] || 0) < 100;
+  if (blind) { battle.blindAborts = (battle.blindAborts || 0) + 1; const up = 2.5 + battle.blindAborts; P.miedo = clamp(P.miedo + up, 0, 100); battle.log.push(`Abortaste sin haber medido: dudaste sin saber qué tenías adelante (+${nf(up, 1)} miedo). Medir no cansa.`); ANIM.still($('#b-scene'), spotKind(battle.spot), colP()); save(); return renderBattle(); }
+  P.miedo = clamp(P.miedo + 1.5, 0, 100);
   battle.log.push(kind === 'tantear' ? 'Frenaste la progresión a tiempo. Mejor repetirla tranquilo.' : 'Abortaste a tiempo: frenaste antes del despegue. Sin golpe. Saber cuándo no saltar también es parkour.');
   ANIM.still($('#b-scene'), spotKind(battle.spot), colP()); save(); renderBattle();
 }
@@ -5660,9 +5667,10 @@ function actResolve(kind, s, foc, f0, odds, g) {
   const cv2 = $('#b-scene');
   battle.acted = true; battle.actions++; battle.mins = (battle.mins || 0) + 20; P.trainedDay = P.day; P.energia = clamp((P.energia ?? 60) - 4, 0, 100);
   if (foc) P.miedo = Math.max(0, P.miedo - 25);
-  P.focusBonus = (battle.visual ? 0.015 : 0) + (foc ? 0.01 : 0) - (battle.special === 'lejos' ? 0.06 : 0);
+  P.focusBonus = (battle.visual ? 0.015 : 0) + (foc ? 0.01 : 0) - (battle.special === 'lejos' ? 0.06 : 0) - (blindJump(kind) ? 0.03 : 0);
   const f1 = P.fatiga, m1 = P.miedo;
   const res = spotAction(P, s, kind, R, g);
+  if (blindJump(kind)) { if (res.result === 'ok') res.lines.push('Salió, pero a ciegas: no lo mediste.'); else { P.miedo = clamp(P.miedo + 2, 0, 100); res.lines.push('No lo habías medido: no sabías dónde ibas a caer (+2 miedo).'); } res.lines.push(...tutorial('ciego', ['Vago: ¿Lo mediste? Sin medir, la barra te miente un poco y, si abortás, dudás sin saber por qué. Medir no cansa.'])); }
   if (g && g.unpinned) res.lines.unshift('Caíste en el borde, pero no pinchó: se te fue el equilibrio.');
   if (battle.special === 'lejos' && res.result === 'ok') { const st = farStat(s); if (st === 'bj') P.bj += 0.004; else if (st) P.vj += 0.002; addPulido(P, s.skill, 2); res.lines.push('Más lejos que de costumbre: la potencia sube de a poco.'); }
   if (battle.special === 'tecnica') { res.lines = res.result === 'ok' ? [`Lo repetís lento, cuidando cada parte del gesto.`] : res.result === 'caida' ? ['Se te desarma el gesto a mitad de camino. Más lento, otra vez.'] : res.lines; }
@@ -8361,6 +8369,7 @@ function olaTrigger(kind, base, what) {
   const S = OLA_SIZE[size];
   P.ola = { kind, size, start: absMin(P), dur: S.dur, miedo: S.miedo, applied: 0, what: what || '' };
   if (size >= 2) { P.olaDay = P.day; P.olaPend = true; }
+  else if (!P.olaSeen) P.olaPend = true; // la primera ola, aunque sea una ondita, la presenta Valen
   else P.pendMsg = [P.pendMsg, '🌊 Te quedó una cosquilla en el pecho. Ya va a pasar.'].filter(Boolean).join(' ');
   return size;
 }
@@ -8369,6 +8378,7 @@ function olaPrompt(next) {
   if (!P.olaPend || !P.ola) { P.olaPend = false; return next && next(); }
   if (!P.olaSeen) { P.olaSeen = true; return playCut('ola', () => { show('world'); olaPrompt(next); }); }
   P.olaPend = false;
+  if (P.ola.size < 2) return say(['🌊 Esa cosquilla en el pecho es una ondita. Mirá el iconito arriba tuyo: sube, llega arriba y baja sola. Esta pasa enseguida.', 'Cuando venga una ola de verdad, vas a poder elegir qué hacer con ella.'], next || null);
   const o = P.ola, K = OLA_KIND[o.kind], v = olaVuln(P), mental = P.mental || {};
   const canCalm = K.somatic ? !!mental.activacion : v < 0.45 || !!mental.hechos;
   const intro = [K.somatic ? 'El corazón te late a mil. Las manos te transpiran y tenés el estómago cerrado.' : `${o.what ? o.what + ' ' : ''}Sentís que te sube algo por el pecho: es una ${OLA_SIZE[o.size].name}.`];
@@ -10547,7 +10557,7 @@ function rescuePos() {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.71 Alpha';
+const ALPHA_V = '0.72 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
