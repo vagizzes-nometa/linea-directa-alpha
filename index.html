@@ -3146,7 +3146,7 @@ const MINI = (() => {
   // ---------- VERTICAL: 5 intentos. Sostené 5 segundos en la zona verde con ◀ ▶ (flechas, A/D o tocando a los costados) ----------
   // Cuanto más sabés, más chica la zona y más te tira el cuerpo: cada sesión cuesta más.
   let steer = 0;
-  const steerDir = () => steer || (typeof held !== 'undefined' ? (held === 'left' ? -1 : held === 'right' ? 1 : 0) : 0);
+  const steerDir = () => steer || (typeof held !== 'undefined' ? (held === 'left' ? -1 : held === 'right' ? 1 : 0) : 0) || (typeof GYRO !== 'undefined' && GYRO.on() ? GYRO.val() : 0);
   function vertical(o) {
     const lv = Math.max(0, Math.min(1, o.level || 0)), TRIES = 5, HOLD = 5000, MAXT = 9000;
     const zw = 0.32 - 0.17 * lv, push = 0.6 + 0.7 * lv, kick = 0.5 + 0.9 * lv;
@@ -10662,10 +10662,69 @@ function drawModTile(c, p) {
   drawProp = function (c, p) { if (p && p.kind === 'modtile') return drawModTile(c, p); return _dp.apply(this, arguments); };
 }
 
+// ================= GIROSCOPIO (v0.75): el equilibrio de las verticales y de pinchar, inclinando el celu =================
+// Pedido de Vago. API del navegador (deviceorientation). En iPhone hay que pedir permiso con un toque, una sola vez
+// (solo anda en la versión instalable, con https). Al arrancar cada minijuego de equilibrio se toma la posición del celu
+// como "derecho". La inclinación empuja el cuerpo igual que las flechas, pero de forma continua: poquito, poquito; mucho, mucho.
+// Las flechas y tocar a los costados siguen andando siempre.
+const GYRO = (() => {
+  const KEY = 'lineaDirecta.giro';
+  let want = false, raw = null, zero = 0, ok = false;
+  try { want = localStorage.getItem(KEY) === '1'; } catch (e) {}
+  const has = () => typeof window !== 'undefined' && 'DeviceOrientationEvent' in window;
+  // el eje que va de izquierda a derecha de la pantalla depende de cómo tenés el celu
+  const angle = () => (screen.orientation && screen.orientation.angle != null ? screen.orientation.angle : (window.orientation || 0));
+  function onOri(e) {
+    if (e.gamma == null && e.beta == null) return; ok = true;
+    const a = ((angle() % 360) + 360) % 360;
+    raw = a === 90 ? e.beta : a === 270 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+  }
+  let listening = false;
+  function listen() { if (!listening && has()) { window.addEventListener('deviceorientation', onOri); listening = true; } }
+  async function enable() {
+    if (!has()) return 'Este celu no tiene giroscopio (o el navegador no lo deja usar).';
+    try { if (typeof DeviceOrientationEvent.requestPermission === 'function') { const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') return 'No diste permiso: seguís con las flechas.'; } }
+    catch (e) { return 'No se pudo pedir el permiso (en la app instalada sí anda).'; }
+    listen(); want = true; try { localStorage.setItem(KEY, '1'); } catch (e) {}
+    setTimeout(calibrate, 150); return '';
+  }
+  function disable() { want = false; try { localStorage.setItem(KEY, '0'); } catch (e) {} }
+  function calibrate() { if (raw != null) zero = raw; }
+  // de grados a empuje: zona muerta chica (2°) para que el pulso no mueva nada; a 14° es como apretar la flecha a fondo
+  function val() { if (raw == null) return 0; let d = raw - zero; if (d > 180) d -= 360; if (d < -180) d += 360; const s = Math.sign(d), m = Math.max(0, Math.abs(d) - 2); return s * Math.min(1.2, m / 12); }
+  if (want) listen(); // en Android no hace falta permiso; en iPhone, si ya lo diste, el navegador lo recuerda en la sesión
+  return { on: () => want && ok, wanted: () => want, enable, disable, calibrate, val, has, live: () => ok };
+})();
+// el botón en la pantalla del minijuego: solo en los de equilibrio y en pantallas táctiles
+{
+  const bar = document.querySelector('.mini-bar');
+  if (bar) {
+    const b = el('button', 'btn', '📱 Giroscopio'); b.id = 'mini-gyro'; b.hidden = true; b.title = 'Equilibrio inclinando el celu';
+    bar.insertBefore(b, $('#mini-skip'));
+    const paint = () => { b.textContent = GYRO.wanted() ? (GYRO.live() ? '📱 Giroscopio: sí' : '📱 Giroscopio: esperando...') : '📱 Giroscopio: no'; b.classList.toggle('primary', GYRO.wanted()); };
+    b.onclick = async e => { e.stopPropagation(); if (GYRO.wanted()) { GYRO.disable(); paint(); return; } const msg = await GYRO.enable(); paint(); if (msg) { const n = $('#mini-score'); if (n) n.textContent = msg; } };
+    const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    { const _pl = MINI.play;
+      MINI.play = function (kind, opts, done) {
+        const steerGame = kind === 'vertical' || kind === 'equilibrio';
+        b.hidden = !(steerGame && touch && GYRO.has()); paint();
+        if (steerGame && GYRO.on()) GYRO.calibrate(); // la posición de ahora es "derecho"
+        const r = _pl.apply(this, arguments);
+        if (steerGame && GYRO.on()) { const t = $('#mini-tip'); if (t) t.textContent = 'Inclinás el celu para mantener el equilibrio (también andan ◀ ▶)'; }
+        return r;
+      };
+    }
+    setInterval(() => { if (!b.hidden) paint(); }, 800);
+  }
+}
+// iPhone: mantener apretado ya no selecciona texto ni abre el menú de copiar (se comía los toques de ◀ ▶ y del minijuego)
+{ const st = document.createElement('style'); st.textContent = `body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, [contenteditable="true"], .al-panel textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }`; document.head.appendChild(st); }
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.74.1 Alpha';
+const ALPHA_V = '0.75 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
