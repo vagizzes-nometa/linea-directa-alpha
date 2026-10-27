@@ -10559,7 +10559,7 @@ function lateNightLines(bed) {
 function rescuePos() {
   if (!P || !P.pos) return false;
   const M = MAPS[P.map || curMap]; if (!M) return false;
-  const W = M.MW || (M.ground && M.ground[0] && M.ground[0].length) || 0, H = M.MH || (M.ground && M.ground.length) || 0;
+  const W = M.MW || (M.ground && M.ground[0] && M.ground[0].length) || (P.map === curMap ? MW : 0), H = M.MH || (M.ground && M.ground.length) || (P.map === curMap ? MH : 0);
   const { x, y } = P.pos; if (x >= 0 && y >= 0 && x < W && y < H && !(M.blocked && M.blocked[y] && M.blocked[y][x])) return false;
   if (M.indoor) { const bf = P.backFrom || { map: 'barrio', x: BX(28), y: BY(22) }; useMap(bf.map); P.map = bf.map; P.pos = { x: bf.x, y: bf.y, dir: 'down' }; }
   else P.pos = Object.assign({ dir: 'down' }, homePos());
@@ -10567,7 +10567,14 @@ function rescuePos() {
 }
 { const _cg = continueGame;
   continueGame = function () { const r = _cg.apply(this, arguments); if (rescuePos()) { renderHud(); show('world'); } return r; };
+  const b = $('#t-continue'); if (b) b.onclick = () => continueGame(); // el botón tenía atada la versión vieja
 }
+// y mientras jugás: si por cualquier camino quedás fuera del mapa, volvés a la puerta
+setInterval(() => {
+  if (typeof P === 'undefined' || !P || !P.pos || typeof curScreen !== 'function' || curScreen() !== 'world' || moving) return;
+  const { x, y } = P.pos; if (x >= 0 && y >= 0 && x < MW && y < MH) return;
+  P.map = curMap; if (rescuePos()) { renderHud(); say(['Saliste por la puerta.']); }
+}, 700);
 
 // ================= MÓDULOS DE PISTA (v0.73): elementos reales tomados de los módulos de Parkour Projects =================
 // Referencia: el croquis de Vago (pista "sp 2" y su sistema de módulos: cubo de 1,22 m con alturas .40 / .80 / 1.20,
@@ -10614,10 +10621,49 @@ const MOD_TYPES = ['m_barras', 'm_esc', 'm_muro'];
   };
 }
 
+// ---- La pista adentro (v0.74): en el polideportivo, el estadio y el gimnasio la pista ya no es una franja en el piso,
+// es una fila de módulos de verdad, uno detrás del otro (rampa, cubos, caños, escalonado y drop, muro con alero, llegada).
+const MOD_RUN_LONG = ['start', 'ramp', 'cube', 'run', 'bars', 'run', 'esc', 'drop', 'run', 'muro', 'run', 'cube', 'bars', 'run', 'esc', 'drop', 'run', 'finish'];
+function modTrack(mapId, id, y, x0, x1, seq) {
+  const M = MAPS[mapId]; if (!M) return;
+  for (let i = M.props.length - 1; i >= 0; i--) { const p = M.props[i]; if (p.id === id && p.y === y) { M.props.splice(i, 1); if (M.blocked[y]) M.blocked[y][p.x] = false; } }
+  const n = x1 - x0 + 1, pat = seq || MOD_RUN_LONG.slice(0, n - 1).concat(['finish']);
+  for (let k = 0; k < n; k++) { const x = x0 + k; M.props.push({ id, kind: 'modtile', m: pat[k] || 'run', x, y }); M.blocked[y][x] = true; }
+}
+// el polideportivo (20 × 12 con la ampliación): la pista cruza la sala y deja libre el paso de la derecha
+modTrack('poliint', 'pista', 6, 2, 13);
+// el estadio: una pista larga en el medio
+modTrack('estadioint', 'pista', 7, 2, 18);
+// el gimnasio: la pista de práctica, corta
+modTrack('gimnasio', 'st-track', 6, 9, 11, ['cube', 'bars', 'esc']);
+
+// dibujo de cada baldosa de la pista: piso de goma con línea, y el módulo parado en perspectiva (alto ≈ 6 px por metro)
+function drawModTile(c, p) {
+  const px = p.x * TS, py = p.y * TS, base = py + 13, k = 6;
+  c.fillStyle = '#c0563b'; c.fillRect(px, py + 4, 16, 11); c.fillStyle = '#a8462f'; c.fillRect(px, py + 14, 16, 1);
+  c.fillStyle = 'rgba(248,244,227,.7)'; for (let i = 1; i < 16; i += 5) c.fillRect(px + i, py + 9, 3, 1);
+  const box = (x, w, h, col = '#34405a', top = '#4d5d80') => { const hp = Math.round(h * k); c.fillStyle = '#1f2638'; c.fillRect(x - 1, base - hp - 5, w + 2, hp + 6); c.fillStyle = col; c.fillRect(x, base - hp, w, hp); c.fillStyle = top; c.fillRect(x, base - hp - 4, w, 4); c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x, base - hp - 4, w, 1); };
+  const yel = '#e7c13a', yelD = '#c99f22';
+  switch (p.m) {
+    case 'start': c.fillStyle = '#f8f4e3'; c.fillRect(px + 7, py + 4, 2, 11); break;
+    case 'finish': for (let yy = 0; yy < 11; yy += 2) for (let xx = 0; xx < 4; xx += 2) { c.fillStyle = (yy / 2 + xx / 2) % 2 ? '#283050' : '#f8f4e3'; c.fillRect(px + 6 + xx, py + 4 + yy, 2, 2); } break;
+    case 'ramp': for (let i = 0; i < 14; i++) { const h = Math.round(i / 14 * 1.2 * k); c.fillStyle = yel; c.fillRect(px + 1 + i, base - h - 4, 1, h + 4); c.fillStyle = yelD; c.fillRect(px + 1 + i, base - 1, 1, 1); } break;
+    case 'cube': box(px + 2, 12, 1.2); break;
+    case 'bars': { box(px + 2, 12, 0.4); const ty = base - Math.round(1.4 * k) - 4; c.fillStyle = '#9aa3ad'; c.fillRect(px + 3, ty, 1, Math.round(1.0 * k) + 2); c.fillRect(px + 12, ty, 1, Math.round(1.0 * k) + 2); c.fillStyle = yel; c.fillRect(px + 1, ty, 14, 1); c.fillRect(px + 1, ty + 3, 14, 1); break; }
+    case 'esc': box(px + 1, 7, 1.2); box(px + 8, 7, 2.2); break;
+    case 'drop': for (let i = 0; i < 10; i++) { const h = Math.round((1 - i / 10) * 2.2 * k); c.fillStyle = i % 2 ? yel : yelD; c.fillRect(px + i, base - h - 4, 1, h + 4); } break;
+    case 'muro': { box(px + 3, 11, 1.2); const hp = Math.round(1.2 * k), mh = Math.round(0.8 * k); c.fillStyle = '#1f2638'; c.fillRect(px, base - hp - mh - 5, 15, mh + 2); c.fillStyle = yel; c.fillRect(px + 1, base - hp - mh - 4, 13, mh); c.fillStyle = yelD; c.fillRect(px + 1, base - hp - 5, 13, 1); break; }
+    default: break;
+  }
+}
+{ const _dp = drawProp;
+  drawProp = function (c, p) { if (p && p.kind === 'modtile') return drawModTile(c, p); return _dp.apply(this, arguments); };
+}
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.73 Alpha';
+const ALPHA_V = '0.74 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
