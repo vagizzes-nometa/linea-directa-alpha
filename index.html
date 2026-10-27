@@ -1497,7 +1497,7 @@ const SND = (() => {
 
 // ===== Animaciones de skills (escena 192x96, figura de ~19 px) =====
 const ANIM = (() => {
-  const GROUND = { bropower: 34, tictac: 62, tramp: 84, bench: 84, rail: 84, wall: 84, blocks: 88, flat: 84, stairs: 88, grass: 84, bars: 84 };
+  const GROUND = { mbarras: 84, mesc: 84, mmuro: 84, bropower: 34, tictac: 62, tramp: 84, bench: 84, rail: 84, wall: 84, blocks: 88, flat: 84, stairs: 88, grass: 84, bars: 84 };
   function drawScene(g, kind) {
     g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false;
     if (kind === 'bropower') return drawBroPower(g);
@@ -1547,6 +1547,21 @@ const ANIM = (() => {
       g.fillStyle = '#e7d36a'; g.fillRect(82, 62, 2, 2); g.fillRect(128, 62, 2, 2);
     }
     if (kind === 'flat') { g.fillStyle = '#f8f4e3'; for (let x = 6; x < 192; x += 24) g.fillRect(x, 86, 12, 2); }
+    // módulos de pista (v0.73), a escala del muñeco (1,75 m ≈ 21 px): 12 px por metro, un módulo de 1,22 m mide 15 px
+    const PPM = 12, MW = 15, hy = h => 84 - Math.round(h * PPM);
+    const cube = (x, h) => { const y = hy(h); g.fillStyle = '#34405a'; g.fillRect(x, y, MW, 84 - y); g.fillStyle = '#4d5d80'; g.fillRect(x, y, MW, 2); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(x + 2, y + 4, MW - 4, 1); };
+    const tube = (x0, x1, y) => { g.fillStyle = '#e7c13a'; g.fillRect(x0, y, x1 - x0, 2); g.fillStyle = '#fff3b0'; g.fillRect(x0, y, x1 - x0, 1); };
+    if (kind === 'mbarras') { // cubo 1,20 para entrar de precisión, y el cubo .40 con dos caños arriba (a 1,40)
+      cube(70, 1.2); cube(118, 0.4); const top = hy(1.4); g.fillStyle = '#9aa3ad'; for (const x of [119, 131]) g.fillRect(x, top, 2, hy(0.4) - top);
+      tube(116, 135, top); tube(116, 135, top + 3);
+    }
+    if (kind === 'mesc') { // escalonado 1,20 → 2,20 y la pared inclinada para el drop (0,47 m de base)
+      cube(100, 1.2); cube(100 + MW, 2.2); const y2 = hy(2.2), x2 = 100 + 2 * MW, base = Math.round(0.47 * PPM);
+      g.fillStyle = '#e7c13a'; for (let i = 0; i < 84 - y2; i++) g.fillRect(x2, y2 + i, Math.round(i * base / (84 - y2)) + 1, 1);
+    }
+    if (kind === 'mmuro') { // cubo 1,20 con el muro sobresaliente arriba (0,80 m), con el alero hacia la carrera
+      cube(118, 1.2); const y1 = hy(2.0), y0 = hy(1.2); g.fillStyle = '#e7c13a'; g.fillRect(115, y1, MW + 3, y0 - y1); g.fillStyle = '#c99f22'; g.fillRect(115, y0 - 2, MW + 3, 2); g.fillStyle = '#fff3b0'; g.fillRect(115, y1, MW + 3, 1);
+    }
   }
   function fig(g, x, y, pose, c, frame, rot) {
     if (rot) { g.save(); g.translate(Math.round(x), Math.round(y) - 10); g.rotate(rot * Math.PI / 180); fig(g, 0, 10, pose, c, frame, 0); g.restore(); return; }
@@ -10554,10 +10569,55 @@ function rescuePos() {
   continueGame = function () { const r = _cg.apply(this, arguments); if (rescuePos()) { renderHud(); show('world'); } return r; };
 }
 
+// ================= MÓDULOS DE PISTA (v0.73): elementos reales tomados de los módulos de Parkour Projects =================
+// Referencia: el croquis de Vago (pista "sp 2" y su sistema de módulos: cubo de 1,22 m con alturas .40 / .80 / 1.20,
+// escalonado 1.20 → 2.20, barras superiores, muro sobresaliente, pared inclinada). Las medidas son las reales de la pista
+// de adulto (nivel País); en los niveles más bajos se achican en proporción, como pidió Vago ("si es muy alto se achica").
+const MOD_REF_T = 0.60;
+function modScale(T) { const ref = targetStats(T.sex, MOD_REF_T).wr; return clamp(T.wr / ref, 0.6, 1); }
+const modTxt = (real, s) => s < 0.99 ? `${fmtM(real * s)} (en pista grande: ${fmtM(real)})` : fmtM(real);
+function makeModule(type, T, r) {
+  const u = (a, b) => a + (b - a) * r(), s = modScale(T), tq = T.tec * u(0.95, 1.1);
+  if (type === 'm_barras') return { type, kind: 'mbarras', name: 'Cubo con dos caños', detail: `caños a ${modTxt(1.40, s)}; antes, un cubo de ${fmtM(1.2 * s)}`, options: [
+    { label: 'Underbar entre los caños', skill: 'underbar', move: 'underbar', req: { stat: 'tec', v: tq }, time: 0.7, cost: 8, failPen: 1.8, inj: 0.6 },
+    { label: 'Precisión desde el cubo', skill: 'precision', move: 'precision', req: { stat: 'bj', v: T.bj * 0.8, tecMix: true }, time: 0.75, cost: 9, failPen: 2.5, inj: 1.2 },
+    { label: 'Pasavallas por arriba', move: 'dash', req: { stat: 'tec', v: tq * 0.6 }, time: 1.0, cost: 6, failPen: 1.4, inj: 0.5 },
+    { label: 'Subir y bajar', move: 'safe', time: 2.4, cost: 6 }] };
+  if (type === 'm_esc') { const H2 = 2.2 * s;
+    return { type, kind: 'mesc', name: 'Escalonado y drop', detail: `escalón de ${fmtM(1.2 * s)}, arriba ${modTxt(2.2, s)} y bajada por la pared inclinada`, options: [
+      { label: 'Wall run al alto y drop', skill: 'wallrun', move: 'wallrun', req: { stat: 'wr', v: H2 }, time: 1.2, cost: 13, failPen: 2.6, inj: 1.0 },
+      { label: 'Doble subida y drop', move: 'wallrun', req: { stat: 'wr', v: H2 * 0.8 }, time: 1.7, cost: 12, failPen: 2.0, inj: 0.8 },
+      { label: 'Trepar de a un escalón', move: 'safe', time: 3.6, cost: 9 }] }; }
+  // m_muro: cubo 1.20 con el muro sobresaliente (alero): el borde salido complica el wall run y premia el tic-tac
+  const H = 2.0 * s;
+  return { type: 'm_muro', kind: 'mmuro', name: 'Muro con alero', detail: `${modTxt(2.0, s)} con el borde salido hacia vos`, options: [
+    { label: 'Tic-tac al alero', skill: 'tictac', move: 'tictac', req: { stat: 'wr', v: H * 1.0 }, time: 1.2, cost: 12, failPen: 2.2, inj: 0.8 },
+    { label: 'Wall run (el alero molesta)', skill: 'wallrun', move: 'wallrun', req: { stat: 'wr', v: H * 1.08 }, time: 1.1, cost: 13, failPen: 2.6, inj: 0.9 },
+    { label: 'Cat leap al alero', skill: 'catleap', move: 'catleap', req: { stat: 'cat', v: T.bj * 0.85 }, time: 1.5, cost: 12, failPen: 2.2, inj: 0.9 },
+    { label: 'Rodear el módulo', move: 'safe', time: 4.0, cost: 8 }] };
+}
+const MOD_TYPES = ['m_barras', 'm_esc', 'm_muro'];
+{ const _me0 = makeElement0;
+  makeElement0 = function (type, T, r) { return MOD_TYPES.includes(type) ? makeModule(type, T, r) : _me0.apply(this, arguments); };
+}
+// cada pista suma módulos reales en lugar de algunos elementos genéricos: uno en Plaza, dos desde Barrio
+{ const _mt = makeTrack;
+  makeTrack = function (sex, level, seed) {
+    const tr = _mt.apply(this, arguments), r = rng((seed || 1) * 31 + 7), T = targetStats(sex, LEVELS[level].t);
+    const idx = tr.map((e, i) => e.type !== 'sprint' ? i : -1).filter(i => i >= 0);
+    const n = Math.min(idx.length - 1, level >= 1 ? 2 : 1), kinds = MOD_TYPES.slice();
+    for (let k = 0; k < n; k++) {
+      const j = idx.splice(Math.floor(r() * idx.length), 1)[0], t = kinds.splice(Math.floor(r() * kinds.length), 1)[0];
+      tr[j] = makeElement(t, T, r);
+    }
+    return tr;
+  };
+}
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.72 Alpha';
+const ALPHA_V = '0.73 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
