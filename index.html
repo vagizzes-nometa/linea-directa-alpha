@@ -4645,7 +4645,7 @@ function updateHunger() {
   if (P.treatDay === P.day - 1) d -= 6;
   P.hambre = clamp((P.hambre || 0) + d, 0, 100);
   P.deficitDias = P.plan === 'deficit' ? (P.deficitDias || 0) + 1 : Math.max(0, (P.deficitDias || 0) - 2);
-  if (P.plan === 'deficit' && P.deficitDias >= 14) { P.plan = 'mantener'; lines.push('La nutricionista cortó el déficit: dos semanas seguidas es demasiado. Pasás a mantener.'); lines.push(...diaryLines(['El déficit no se sostiene más de dos semanas: el cuerpo empieza a cobrarlo.'], 'La nutri')); }
+  if (P.plan === 'deficit' && P.deficitDias >= 14) { P.plan = 'mantener'; P.dietBreakUntil = P.day + 14; lines.push('La nutricionista cortó el déficit: dos semanas seguidas es demasiado. Pasás a mantener.'); lines.push(...diaryLines(['El déficit no se sostiene más de dos semanas: el cuerpo empieza a cobrarlo.'], 'La nutri')); }
   else if (P.plan === 'deficit' && P.deficitDias === 10) lines.push('La nutricionista te escribe: "Diez días de déficit. Si aparecen bajones o ganas de atracarte, es el cuerpo pidiendo. Pensá en volver a mantener".');
   if (P.hambre >= 60 && !P.tut?.hambre) lines.push(...tutorial('hambre', ['Tenés mucha hambre acumulada. En el menú (Atleta) lo ves; comer bien y salir del déficit la baja.']));
   return lines;
@@ -7180,16 +7180,17 @@ const PREP = {
   ]
 };
 // En la competencia usás lo que traés en la mochila; el buffet del polideportivo vende coca, energizante y sánguches
-const PREP_BAG = { iso: 'iso', banana: 'banana', cafe: 'cafe' }, PREP_BUFFET = { coca: 2, energ: 5, sanguche: 6 };
+// v0.76 (nota de Vago): el buffet del torneo cobra el doble que el kiosco. Lo que traés en la mochila te sale la mitad: esa es la estrategia de la previa.
+const PREP_BAG = { iso: 'iso', banana: 'banana', cafe: 'cafe' }, PREP_BUFFET = { coca: 4, energ: 8, sanguche: 9, iso: 8, banana: 4, cafe: 4 }, PREP_KIOSCO = { coca: 2, energ: 4, iso: 4, banana: 2, cafe: 2 };
 function prepAvail(k) {
   if (k === 'agua') return { ok: true, tag: '🚰 bebedero, gratis' };
-  if (PREP_BAG[k]) { const n = (P.bag || []).filter(x => x === PREP_BAG[k]).length; return { ok: n > 0, tag: n ? `🎒 tenés ${n}` : '🎒 no lo trajiste' }; }
-  if (PREP_BUFFET[k]) { const pr = PREP_BUFFET[k]; return { ok: canPay(pr), tag: `buffet · ${priceTxt(pr)}` }; }
+  if (PREP_BAG[k]) { const n = (P.bag || []).filter(x => x === PREP_BAG[k]).length; if (n) return { ok: true, tag: `🎒 tenés ${n}` }; }
+  if (PREP_BUFFET[k]) { const pr = PREP_BUFFET[k], kio = PREP_KIOSCO[k]; return { ok: canPay(pr), tag: `buffet · ${priceTxt(pr)}${kio ? ` (en el kiosco, ${priceTxt(kio)})` : ''}` }; }
   return { ok: true, tag: '' };
 }
 function prepConsume(k) {
-  if (PREP_BAG[k]) { const i = (P.bag || []).indexOf(PREP_BAG[k]); if (i >= 0) P.bag.splice(i, 1); }
-  else if (PREP_BUFFET[k]) money(-PREP_BUFFET[k]);
+  if (PREP_BAG[k]) { const i = (P.bag || []).indexOf(PREP_BAG[k]); if (i >= 0) { P.bag.splice(i, 1); return; } }
+  if (PREP_BUFFET[k]) money(-PREP_BUFFET[k]);
 }
 let prepCtl = null;
 function openPrep(track, second) {
@@ -8023,6 +8024,13 @@ function bodyFeel() {
 }
 function morningBody() {
   const b = bodyFeel(); if (b.k === 'bien') { P.bodyTold = null; return []; }
+  // en déficit, o en las dos semanas de mantener que siguen a un déficit, la nutri no te vuelve a llamar por lo mismo:
+  // bajar es lento a propósito. Una vez por semana te recuerda que vas bien.
+  if (b.k === 'alto' && (P.plan === 'deficit' || (P.dietBreakUntil || 0) > P.day)) {
+    if (P.bodyTold && P.day - P.bodyTold.d < 7) return [];
+    P.bodyTold = { k: b.k, d: P.day };
+    return [P.plan === 'deficit' ? '🥗 La nutri te escribe: "Vas bien. Bajar de a poco es lo que buscamos: si fuera rápido, perderías fuerza."' : '🥗 La nutri te escribe: "Estas semanas toca mantener: el cuerpo descansa del déficit. Después vemos cómo seguimos."'];
+  }
   if (P.bodyTold && P.bodyTold.k === b.k && P.day - P.bodyTold.d < 4) return [];
   P.bodyTold = { k: b.k, d: P.day };
   if (P.nutriMet && typeof nutriCallMsg === 'function') { P.nutriCall = true; return [`${b.icon} ${b.txt}`, nutriCallMsg()]; }
@@ -8544,6 +8552,7 @@ function nutriCallMsg() { return '📞 Mensaje en el contestador: "Hola, soy la 
 function nutriProposal() {
   const b = bodyFeel().k, plan = P.plan || 'mantener';
   if (b === 'bajo' || b === 'justo') return plan === 'deficit' ? { to: 'mantener', why: 'Estás comiendo menos de lo que gastás y se nota en la recuperación.', will: 'En una semana vas a recuperar mejor entre sesiones y te van a doler menos las piernas.' } : { to: 'volumen', why: 'Entrenás más de lo que comés: el cuerpo no llega a reponerse.', will: 'En una semana vas a sentir más fuerza en los saltos. Puede que estés un poco más pesado después de comer.' };
+  if (b === 'alto' && (plan === 'deficit' || (P.dietBreakUntil || 0) > P.day)) return null; // ya está haciendo lo que corresponde
   if (b === 'alto') return plan === 'volumen' ? { to: 'mantener', why: 'El volumen ya cumplió: ahora los saltos te cuestan.', will: 'En una o dos semanas vas a sentir los saltos más livianos.' } : { to: 'deficit', why: 'Los saltos te están costando más que antes.', will: 'Dos semanas de déficit moderado: vas a sentir los saltos más livianos. Puede haber más hambre: comé en horario.' };
   return null;
 }
@@ -8558,7 +8567,7 @@ function nutriConsult(first) {
         ['mantener', 'deficit', 'volumen'].map(k => ({ label: PLAN_NAME[k][0].toUpperCase() + PLAN_NAME[k].slice(1), primary: k === 'mantener', fn: () => { P.plan = k; if (k === 'deficit') P.deficitDias = 0; save(); backToWorld([`Plan de la nutri: ${PLAN_NAME[k]}. Queda pegado en la pared de tu casa.`]); } })));
     }
     const pr = nutriProposal();
-    if (!pr) return backToWorld(['Nutri: Te veo bien. Seguí así: comé en horario y dormí.']);
+    if (!pr) return backToWorld([bodyFeel().k === 'alto' ? (P.plan === 'deficit' ? 'Nutri: Vas bien con el déficit. Es lento a propósito: seguí comiendo en horario.' : 'Nutri: Ahora toca mantener unas semanas. Después del descanso, si hace falta, hacemos otro bloque.') : 'Nutri: Te veo bien. Seguí así: comé en horario y dormí.']);
     ask('🥗 La nutricionista', [`Nutri: ${pr.why}`, `Te propongo pasar a ${PLAN_NAME[pr.to]}.`, `Qué vas a notar: ${pr.will}`], [
       { label: `Pasar a ${PLAN_NAME[pr.to]}`, primary: true, fn: () => { P.plan = pr.to; if (pr.to === 'deficit') P.deficitDias = 0; P.bodyTold = null; const sv = addDiary(`La nutri me pasó a ${PLAN_NAME[pr.to]}: ${pr.will}`, 'La nutri'); save(); backToWorld([`Plan nuevo: ${PLAN_NAME[pr.to]}.`, sv].filter(Boolean)); } },
       { label: 'Seguir como estoy', fn: () => backToWorld(['Nutri: Como quieras. Si el cuerpo sigue avisando, te vuelvo a llamar.']) }
@@ -10566,7 +10575,7 @@ function rescuePos() {
   save(); return true;
 }
 { const _cg = continueGame;
-  continueGame = function () { const r = _cg.apply(this, arguments); if (rescuePos()) { renderHud(); show('world'); } return r; };
+  continueGame = function () { const r = _cg.apply(this, arguments); if (P && P.dietBreakUntil == null && P.plan === 'mantener' && (P.deficitDias || 0) > 0) P.dietBreakUntil = P.day + 14; /* v0.76: partidas que salieron de un déficit antes del arreglo */ if (rescuePos()) { renderHud(); show('world'); } return r; };
   const b = $('#t-continue'); if (b) b.onclick = () => continueGame(); // el botón tenía atada la versión vieja
 }
 // y mientras jugás: si por cualquier camino quedás fuera del mapa, volvés a la puerta
@@ -10724,7 +10733,7 @@ const GYRO = (() => {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.75 Alpha';
+const ALPHA_V = '0.76 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
