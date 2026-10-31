@@ -1283,7 +1283,8 @@ const COMBOS = [
 function comboReq(p, step) { return step.req(targetStats(p.sex, Math.max(0.03, LEVELS[p.level].t - 0.06))); }
 function comboMargin(p, step, i) { return margin(derive(p), p, { req: comboReq(p, step), skill: step.skill }, spotSf(p)) - 0.025 * i + (typeof olaMargin === 'function' ? olaMargin(p) : 0); }
 function spotReq(p, spot) {
-  const T = targetStats(p.sex, Math.max(0.03, LEVELS[Math.max(p.level, spot.area || 0)].t - 0.06));
+  // v0.77 (Vago): cada spot tiene su medida para siempre; los saltos más grandes son otros spots, en otros mapas
+  const T = targetStats(p.sex, Math.max(0.03, LEVELS[spot.area || 0].t - 0.06));
   return spot.req(T);
 }
 function spotSf(p) { return clamp(1 - p.fatiga / 110, 0.1, 1); }
@@ -1348,7 +1349,7 @@ function masteredFearDrop(p, key) {
 function spotAction(p, spot, action, r, pre) {
   // pre: resultado de un minijuego {hit, q, doubt, zone, risk}; sin pre, se tira el dado como antes
   pre = pre || null;
-  const key = spot.id + ':' + p.level;
+  const key = spot.id + ':0';
   p.dom = p.dom || {}; p.skills = p.skills || {};
   if ((p.dom[key] || 0) >= 99.5 && p.dom[key] < 100) p.dom[key] = 99.99; // partidas viejas trabadas en 99,x: el próximo intento lo cierra
   const dom0 = p.dom[key] || 0, out = { lines: [], result: 'ok' };
@@ -4389,9 +4390,9 @@ function render() {
   const objs = [];
   for (const s of mapSpots()) objs.push({ y: s.y, d: () => {
     drawSpotObj(c, s);
-    const key = s.id + ':' + P.level, dom = (P.dom || {})[key] || 0;
+    const key = s.id + ':0', dom = (P.dom || {})[key] || 0;
     if (dom >= 100) { c.fillStyle = '#2c9a5a'; c.fillRect(s.x * TS + 5, s.y * TS - 12, 6, 6); c.fillStyle = '#fff'; c.fillRect(s.x * TS + 6, s.y * TS - 9, 1, 1); c.fillRect(s.x * TS + 7, s.y * TS - 8, 1, 1); c.fillRect(s.x * TS + 8, s.y * TS - 10, 1, 2); c.fillRect(s.x * TS + 9, s.y * TS - 11, 1, 1); }
-    else if (blink) { c.fillStyle = '#ffd23f'; c.fillRect(s.x * TS + 7, s.y * TS - 13, 2, 6); c.fillRect(s.x * TS + 5, s.y * TS - 11, 6, 2); }
+    else if (blink) { const col = spotDiffCol(s); c.fillStyle = '#283050'; c.fillRect(s.x * TS + 6, s.y * TS - 14, 4, 8); c.fillRect(s.x * TS + 4, s.y * TS - 12, 8, 4); c.fillStyle = col; c.fillRect(s.x * TS + 7, s.y * TS - 13, 2, 6); c.fillRect(s.x * TS + 5, s.y * TS - 11, 6, 2); }
   } });
   for (const p of props) objs.push({ y: p.y, d: () => drawProp(c, p, frameT) });
   for (const g of GATES) objs.push({ y: g.y, d: () => drawGate(c, g, P.level >= g.need) });
@@ -5304,7 +5305,7 @@ function openMiniMap(target) {
   const label = (txt, x, y, col) => { g.fillStyle = 'rgba(20,24,40,.8)'; const w = g.measureText(txt).width + 4; g.fillRect(x - w / 2, y - 7, w, 9); g.fillStyle = col || '#f8f4e3'; g.fillText(txt, x, y); };
   for (const b of m.buildings) { const [x, y] = at(b.x + b.w / 2 - 0.5, b.y + b.h / 2 - 0.5); label(b.name.replace(/^Estadio de /, 'Estadio ').slice(0, 18), x, y + 3); }
   const spots = SPOTS.filter(s => (s.map || 'barrio') === here && s.x != null);
-  for (const s of spots) { const [x, y] = at(s.x, s.y), dom = (P.dom || {})[s.id + ':' + P.level] || 0; g.fillStyle = '#283050'; g.fillRect(x - 3, y - 3, 7, 7); g.fillStyle = dom >= 100 ? '#2c9a5a' : P.seen[s.id] ? '#ffd23f' : '#cfd3dc'; g.fillRect(x - 2, y - 2, 5, 5); }
+  for (const s of spots) { const [x, y] = at(s.x, s.y), dom = (P.dom || {})[s.id + ':0'] || 0; g.fillStyle = '#283050'; g.fillRect(x - 3, y - 3, 7, 7); g.fillStyle = dom >= 100 ? '#2c9a5a' : P.seen[s.id] ? '#ffd23f' : '#cfd3dc'; g.fillRect(x - 2, y - 2, 5, 5); }
   for (const p of m.props) if (p.id === 'gorra') { const [x, y] = at(p.x, p.y); g.fillStyle = '#283050'; g.fillRect(x - 3, y - 2, 7, 5); g.fillStyle = '#e94b8a'; g.fillRect(x - 2, y - 1, 5, 3); }
   for (const e of m.exits || []) if (MAPS[e.to] && e.to !== 'back') { const [x, y] = at(e.x, e.y); label('→ ' + MAPS[e.to].name, clamp(x, 40, W0 - 40), clamp(y, 10, H0 - 4), '#ffd23f'); }
   if (me) { const [x, y] = at(me.x, me.y); g.fillStyle = '#fff'; g.fillRect(x - 4, y - 4, 9, 9); g.fillStyle = '#d0412f'; g.fillRect(x - 3, y - 3, 7, 7); }
@@ -5315,7 +5316,7 @@ function openMiniMap(target) {
   $('#mm-list').innerHTML = `<h3 class="sect">Lugares</h3><div class="chips">${m.buildings.map(b => `<span class="chip">${b.name}</span>`).join('') || '<span class="note">Nada techado.</span>'}</div>`
     + (() => { const lockedS = s => (m.AREAS || []).some(a => P.level < a.need && s.x >= a.x0 && s.x <= a.x1 && s.y >= a.y0 && s.y <= a.y1);
       const seen = spots.filter(s => P.seen[s.id]), unseen = spots.filter(s => !P.seen[s.id]), open = unseen.filter(s => !lockedS(s)).length;
-      return `<h3 class="sect">Spots</h3><div class="chips">${seen.map(s => { const dom = (P.dom || {})[s.id + ':' + P.level] || 0; return `<span class="chip ${dom >= 100 ? 'ok' : ''}">${s.name} · ${SKILLS[s.skill].name}${dom >= 100 ? ' ✓' : ''}</span>`; }).join('')}</div>`
+      return `<h3 class="sect">Spots</h3><div class="chips">${seen.map(s => { const dom = (P.dom || {})[s.id + ':0'] || 0; return `<span class="chip ${dom >= 100 ? 'ok' : ''}">${s.name} · ${SKILLS[s.skill].name}${dom >= 100 ? ' ✓' : ''}</span>`; }).join('')}</div>`
         + (unseen.length ? `<p class="note">${open ? `${open} ${open === 1 ? 'spot que todavía no viste' : 'spots que todavía no viste'} (✦ en el mapa)` : ''}${open && unseen.length > open ? ' y ' : ''}${unseen.length > open ? `${unseen.length - open} en zonas que todavía no se abrieron 🔒` : ''}.</p>` : '')
         + (!spots.length ? '<p class="note">Acá no hay spots.</p>' : ''); })()
     + (gz.length ? `<h3 class="sect">Gorra</h3><div class="chips">${gz.map(G0 => `<span class="chip">🎩 ${G0.has.map(h => ({ suelo: 'piso', pared: 'pared', valla: 'banco/baranda', borde: 'bordes', barras: 'barras' })[h]).join(' · ')}</span>`).join('')}</div>` : '')
@@ -5337,7 +5338,7 @@ function openPremium() {
     knowSkill(k, 'seen');
     const nm = n => P.skills[n] || K().skills[n] ? SKILLS[n].name : '???';
     const needs = (sk.needs || []).map(n => `<span class="chip ${P.skills[n] ? 'ok' : 'bad'}">${nm(n)}</span>`).join(' ') + (sk.needsAny ? ' + una de: ' + sk.needsAny.map(n => `<span class="chip ${P.skills[n] ? 'ok' : 'bad'}">${nm(n)}</span>`).join(' ') : '');
-    const dom = P.dom[sp.id + ':' + P.level] || 0;
+    const dom = P.dom[sp.id + ':0'] || 0;
     const card = el('div', 'combocard', `<div><b>${sk.name}</b>${P.skills[k] ? ' <span class="chip ok">DOMINADO</span>' : dom ? ` <span class="chip">${Math.round(dom)}%</span>` : ''}<small>${sk.desc}</small><div class="chips">Previos: ${needs}</div></div>`);
     const b = el('button', 'btn primary', ready ? `Entrenar · ${priceTxt(PREMIUM_FEE)}` : 'Faltan previos');
     b.disabled = !ready || !canPay(PREMIUM_FEE);
@@ -5474,10 +5475,10 @@ function startBattle(spot) {
   if (P.noTrainDay === P.day) return say(['Dra. Herrera dijo hoy no. Hoy comés y descansás.']);
   if (P.lesion) return say([`Estás lesionado (${P.lesion} días). Mirás el spot desde lejos.`]);
   { const sk = SKILLS[spot.skill]; if (!P.skills[spot.skill] && !premiumReady(P, spot.skill)) { const miss = (sk.needs || []).filter(n => !P.skills[n]).map(n => SKILLS[n].name); const any = sk.needsAny && !sk.needsAny.some(n => P.skills[n]) ? [sk.needsAny.map(n => SKILLS[n].name).join(' o ')] : []; return say([`${spot.name}: acá se aprende el ${sk.name}.`, ...(typeof arbolGuide === 'function' ? arbolGuide(spot.skill) : [`Todavía no: primero necesitás ${[...miss, ...any].join(' y ')}. Los trucos se construyen de a escalones.`])]); } }
-  { const k0 = spot.id + ':' + P.level; if ((P.dom[k0] || 0) < 100 && domRoom(P, k0) <= 0) return say([`${spot.name}: por hoy ya es suficiente con este salto.`, 'Lo que aprendiste se asienta durmiendo. Volvé mañana.']); }
+  { const k0 = spot.id + ':0'; if ((P.dom[k0] || 0) < 100 && domRoom(P, k0) <= 0) return say([`${spot.name}: por hoy ya es suficiente con este salto.`, 'Lo que aprendiste se asienta durmiendo. Volvé mañana.']); }
   P.seen[spot.id] = true;
   battle = { spot, acted: false, medidas: 0, actions: 0, log: [], over: false, measErr: clamp(gauss(R), -1.6, 1.6) };
-  const key = spot.id + ':' + P.level, dom = P.dom[key] || 0;
+  const key = spot.id + ':0', dom = P.dom[key] || 0;
   // antes de medir no sabés la medida exacta: según tu lectura la ves a ojo, con margen de error
   if (dom >= 100) battle.measErr = 0, battle.medidas = 2;
   else if (photoKnows(spot)) { battle.measErr *= 0.3; battle.log.push('📷 Tenés la foto de este spot con la cámara: te acordás bastante bien de la medida.'); }
@@ -5578,7 +5579,7 @@ function renderBattle() {
   if (battle.mode === 'combo') return renderCombo();
   if (battle.mode === 'show') return renderShow();
   if (battle.mode === 'duel') return renderDuel();
-  const s = battle.spot, key = s.id + ':' + P.level, dom = P.dom[key] || 0, req = spotReq(P, s);
+  const s = battle.spot, key = s.id + ':0', dom = P.dom[key] || 0, req = spotReq(P, s);
   const ms = shownMeasure(s, req);
   $('#b-name').textContent = SKILLS[s.skill].name;
   $('#b-skill').innerHTML = `<span class="meas${ms.exact ? '' : ' approx'}" title="${ms.exact ? 'Medido' : 'A ojo: medí para saber la medida real'}">${ms.ico} ${ms.txt}</span>`;
@@ -5605,7 +5606,7 @@ function renderBattle() {
     }
     return;
   }
-  const capKey = s.id + ':' + P.level;
+  const capKey = s.id + ':0';
   if (dom < 100 && domRoom(P, capKey) <= 0) {
     if (!battle.capNote) { battle.capNote = true; battle.log.push('Por hoy ya está con este salto: lo que aprendiste se asienta durmiendo. Volvé mañana.'); return renderBattle(); }
     if (linesOn() && !s.flipSpot) { const ln = el('button', 'cmd', 'LÍNEA<small>Con reloj y récord</small>'); ln.onclick = () => { const l = spotLine(s); leaveBattle(); startLine(l); }; box.appendChild(ln); }
@@ -5631,7 +5632,7 @@ function colP() { return { shirt: P.sex === 'F' ? '#e0663b' : '#2f6fd0', pants: 
 function act(kind) {
   if (battle.anim) return;
   if (battle.guide) return;
-  { const s0 = battle.spot, d0 = (P.dom[s0.id + ':' + P.level] || 0) >= 100; battle.special = null; if (d0 && ['intentar', 'lejos', 'tecnica'].includes(kind)) { if (repLeft(s0) <= 0) return; repUse(s0); battle.special = kind; if (kind !== 'intentar') kind = kind === 'lejos' ? 'intentar' : 'tantear'; } }
+  { const s0 = battle.spot, d0 = (P.dom[s0.id + ':0'] || 0) >= 100; battle.special = null; if (d0 && ['intentar', 'lejos', 'tecnica'].includes(kind)) { if (repLeft(s0) <= 0) return; repUse(s0); battle.special = kind; if (kind !== 'intentar') kind = kind === 'lejos' ? 'intentar' : 'tantear'; } }
   if (kind !== 'medir' && !battle.logged) { battle.logged = true; logTrain('pk'); }
   const s = battle.spot, cv2 = $('#b-scene');
   if (kind === 'medir' || kind === 'tantear') setPhysKnow(s.skill, 1);
@@ -5645,7 +5646,7 @@ function act(kind) {
     });
     return;
   }
-  if (kind === 'intentar') { const pc = (P.dom[s.id + ':' + P.level] || 0) < 100 ? physCheck(P, s.skill) : null; if (pc) setPhysKnow(s.skill, 2); if (pc && !pc.ok) { battle.mins = (battle.mins || 0) + 5; P.fatiga = clamp(P.fatiga + 1, 0, 100); battle.log.push(`Arrancás, sentís que no te da y frenás antes de despegar. ${physSense(s.skill).txt}.`, physKnow(s.skill) === 2 && !battle.shortTold ? 'Ahora sabés cuánto te falta: se ve en el Skill Dex y en Rendimiento.' : ''); battle.shortTold = true; battle.log = battle.log.filter(Boolean); return renderBattle(); } }
+  if (kind === 'intentar') { const pc = (P.dom[s.id + ':0'] || 0) < 100 ? physCheck(P, s.skill) : null; if (pc) setPhysKnow(s.skill, 2); if (pc && !pc.ok) { battle.mins = (battle.mins || 0) + 5; P.fatiga = clamp(P.fatiga + 1, 0, 100); battle.log.push(`Arrancás, sentís que no te da y frenás antes de despegar. ${physSense(s.skill).txt}.`, physKnow(s.skill) === 2 && !battle.shortTold ? 'Ahora sabés cuánto te falta: se ve en el Skill Dex y en Rendimiento.' : ''); battle.shortTold = true; battle.log = battle.log.filter(Boolean); return renderBattle(); } }
   const flip = FLIP_SKILLS.has(s.skill) && kind === 'intentar';
   // cada minijuego nuevo se explica antes del primer intento: cómo se juega, qué es cada color, cómo abortar
   const intro = flip ? 'introRosca' : 'introBarra';
@@ -5668,11 +5669,11 @@ const MINI_INTRO = {
   introRosca: ['Primero tocá en el despegue. En el aire, la rosca de giro marca cuánto rotaste.', 'Tocá para abrir cuando la marca llega arriba: 🟩 verde caés parado (el centro finito es perfecto), 🟨 amarillo caés agachado, 🟥 rojo caés mal.', 'Caer mal no siempre es golpe: si estuviste cerca, te sentás en el pasto y te reís.', 'Antes del despegue podés apretar B y no tirarte.']
 };
 // saltar sin haber medido: la barra te dice menos de lo que es, y si caés no sabías dónde
-function blindJump(kind) { return kind === 'intentar' && battle && battle.spot && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':' + P.level] || 0) < 100; }
+function blindJump(kind) { return kind === 'intentar' && battle && battle.spot && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':0'] || 0) < 100; }
 function actAbort(kind) {
   battle.anim = false; battle.mins = (battle.mins || 0) + 5; P.fatiga = clamp(P.fatiga + 1, 0, 100);
   // abortar sin haber medido es dudar sin información: el miedo crece más, y más cada vez
-  const blind = kind === 'intentar' && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':' + P.level] || 0) < 100;
+  const blind = kind === 'intentar' && !battle.medidas && !battle.special && (P.dom[battle.spot.id + ':0'] || 0) < 100;
   if (blind) { battle.blindAborts = (battle.blindAborts || 0) + 1; const up = 2.5 + battle.blindAborts; P.miedo = clamp(P.miedo + up, 0, 100); battle.log.push(`Abortaste sin haber medido: dudaste sin saber qué tenías adelante (+${nf(up, 1)} miedo). Medir no cansa.`); ANIM.still($('#b-scene'), spotKind(battle.spot), colP()); save(); return renderBattle(); }
   P.miedo = clamp(P.miedo + 1.5, 0, 100);
   battle.log.push(kind === 'tantear' ? 'Frenaste la progresión a tiempo. Mejor repetirla tranquilo.' : 'Abortaste a tiempo: frenaste antes del despegue. Sin golpe. Saber cuándo no saltar también es parkour.');
@@ -5704,7 +5705,7 @@ function actResolve(kind, s, foc, f0, odds, g) {
     battle.hint = battleHint();
     SND.play(res.mastered ? 'master' : res.result === 'lesion' ? 'hurt' : res.result === 'ok' ? 'ok' : 'fail');
     if (res.mastered) { setTimeout(() => ask(`🏅 ¡Dominaste el ${SKILLS[s.skill].name}!`, [`${s.name}: lo tenés al 100%.`, 'Ya lo podés usar en las líneas, en las batallas y en competencia. Repetirlo lo pule, pero de a poco.'], [{ label: '¡Vamos!', primary: true, fn: () => {} }]), 300); addFun(P, 'logro', 10); flash(); battle.log.push(...tutorial('master1', [SKILLS[s.skill].show ? 'Rulo grita desde la gorra: ¡Eso es show! Venite a la tarde que hay gente.' : 'Vago te mira: Bien. Ahora que lo tenés, cuanto más lo repitas y más fuerte estés, mejor te va a salir.'])); }
-    const capK = s.id + ':' + P.level;
+    const capK = s.id + ':0';
     if (res.result === 'lesion') { battle.over = true; battle.injured = true; flashHurt(); }
     else if (!res.mastered && (P.dom[capK] || 0) < 100 && domRoom(P, capK) <= 0) { battle.log.push('¡Suficiente por hoy! El cuerpo tiene que asentar lo que aprendiste. Mañana seguís.'); battle.over = true; battle.autoLeave = true; }
     else if (battle.actions >= 8) { battle.log.push('Se te hizo tarde. Hora de irse.'); battle.over = true; }
@@ -6071,7 +6072,7 @@ function openMenu(tab) {
   if (tab === 'skills') {
     const n = Object.keys(SKILLS).filter(k => P.skills[k]).length;
     const row = ([k, sk], i) => {
-      const kn = K().skills[k], sp = SPOTS.find(s => s.skill === k) || { id: 'ofi-' + k, name: sk.where || '', place: 'Oficio' }, seen = P.seen[sp.id] || (P.ofi || {})[k] > 0, got = P.skills[k], dom = sk.oficio ? (P.ofi || {})[k] || (got ? 100 : 0) : P.dom[sp.id + ':' + P.level] || 0, pul = (P.pulido || {})[k] || 0;
+      const kn = K().skills[k], sp = SPOTS.find(s => s.skill === k) || { id: 'ofi-' + k, name: sk.where || '', place: 'Oficio' }, seen = P.seen[sp.id] || (P.ofi || {})[k] > 0, got = P.skills[k], dom = sk.oficio ? (P.ofi || {})[k] || (got ? 100 : 0) : P.dom[sp.id + ':0'] || 0, pul = (P.pulido || {})[k] || 0;
       if (!got && !seen && kn && kn.how !== 'seen') return `<div class="dexrow"><span class="no">?</span><div><b>${sk.name}</b><small>${kn.how === 'watched' ? `Se lo viste hacer a ${kn.who}.` : `Te contaron que existe${kn.who ? ' (' + kn.who + ')' : ''}.`} No sabés dónde se aprende.</small></div><span class="st">${kn.how === 'watched' ? 'OBSERVADO' : 'RUMOR'}</span></div>`;
       return `<div class="dexrow ${got ? 'got' : seen ? 'seen' : ''}"><span class="no">${String(i + 1).padStart(3, '0')}</span><div><b>${sk.name}</b><small>${sk.desc}</small>${typeof arbolLine === 'function' ? arbolLine(k) : ''}${seen ? `<small class="where">${sp.name} · ${sp.place} · dominio ${Math.round(dom)}%</small>` : ''}${!got && physCheck(P, k) ? `<small class="where" style="color:${physCheck(P, k).ok ? 'var(--good)' : '#7a5bc0'}">💪 Para intentarlo: ${physCheck(P, k).txt}</small>` : ''}${got && k === 'kong' ? `<small class="where">Kong máximo (obstáculo al pecho, mismo nivel): ${nf(kongMax(P, 'pecho', 0).m * FPM(), 1)} pies</small>` : ''}${got ? `<small class="where">Rendimiento hoy: ${skillPerf(k, d)}</small><div class="pul"><span>PULIDO</span>${bar(pul, 'dom')}<b>${Math.round(pul)}</b></div>` : ''}</div><span class="st">${got ? 'DOMINADO' : seen ? 'VISTO' : ''}</span></div>`;
     };
@@ -6605,7 +6606,7 @@ function startGuideBattle(spot) {
 }
 const GUIDE_ALLOWED = { first: ['INTENTAR'], medir: ['MEDIR'], tantear: ['TANTEAR'], intentar: ['INTENTAR'], done: [] };
 function guideAct(kind) {
-  const s = battle.spot, gd = battle.guide, cv2 = $('#b-scene'), key = s.id + ':' + P.level;
+  const s = battle.spot, gd = battle.guide, cv2 = $('#b-scene'), key = s.id + ':0';
   const after = (lines, phase) => { battle.anim = false; battle.log.push(...lines); if (phase) gd.phase = phase; battle.hint = battleHint(); renderBattle(); if (gd.phase !== 'first') drawSasaInScene(); };
   battle.anim = true; renderBattle();
   if (gd.phase === 'first') {
@@ -10575,7 +10576,9 @@ function rescuePos() {
   save(); return true;
 }
 { const _cg = continueGame;
-  continueGame = function () { const r = _cg.apply(this, arguments); if (P && P.dietBreakUntil == null && P.plan === 'mantener' && (P.deficitDias || 0) > 0) P.dietBreakUntil = P.day + 14; /* v0.76: partidas que salieron de un déficit antes del arreglo */ if (rescuePos()) { renderHud(); show('world'); } return r; };
+  continueGame = function () { const r = _cg.apply(this, arguments);
+    // v0.77: el dominio ya no depende del nivel (antes se guardaba "spot:nivel"); queda el mejor de cada spot
+    if (P && P.dom && !P.domV) { P.domV = 1; const nd = {}; for (const [k, v] of Object.entries(P.dom)) { const id = k.replace(/:\d+$/, ''); nd[id + ':0'] = Math.max(nd[id + ':0'] || 0, v); } P.dom = nd; P.domToday = null; for (const sp of SPOTS) if ((P.dom[sp.id + ':0'] || 0) >= 100) P.skills[sp.skill] = true; save(); } if (P && P.dietBreakUntil == null && P.plan === 'mantener' && (P.deficitDias || 0) > 0) P.dietBreakUntil = P.day + 14; /* v0.76: partidas que salieron de un déficit antes del arreglo */ if (rescuePos()) { renderHud(); show('world'); } return r; };
   const b = $('#t-continue'); if (b) b.onclick = () => continueGame(); // el botón tenía atada la versión vieja
 }
 // y mientras jugás: si por cualquier camino quedás fuera del mapa, volvés a la puerta
@@ -10671,6 +10674,24 @@ function drawModTile(c, p) {
   drawProp = function (c, p) { if (p && p.kind === 'modtile') return drawModTile(c, p); return _dp.apply(this, arguments); };
 }
 
+// ---- v0.77: la cruz de cada spot marca qué tan difícil es para vos hoy (verde fácil, amarilla más o menos, roja difícil) ----
+// Mira los previos del árbol, el físico que pide y el margen real del salto (tu cuerpo, cansancio y miedo de hoy).
+const SPOT_COL = { facil: '#3fd07a', medio: '#ffd23f', dificil: '#e5503a' };
+const spotDiffCache = { t: 0, m: new Map() };
+function spotDiff(s) {
+  const now = performance.now(); if (now - spotDiffCache.t > 1500) { spotDiffCache.t = now; spotDiffCache.m.clear(); }
+  if (spotDiffCache.m.has(s.id)) return spotDiffCache.m.get(s.id);
+  let d = 'medio';
+  try {
+    const sk = SKILLS[s.skill] || {}, miss = (sk.needs || []).some(n => !P.skills[n]) || (sk.needsAny && !sk.needsAny.some(n => P.skills[n]));
+    const pc = typeof physCheck === 'function' ? physCheck(P, s.skill) : null;
+    if (miss || (pc && !pc.ok)) d = 'dificil';
+    else { const m = spotMargin(P, s); d = m >= 0.06 ? 'facil' : m >= -0.03 ? 'medio' : 'dificil'; }
+  } catch (e) {}
+  spotDiffCache.m.set(s.id, d); return d;
+}
+function spotDiffCol(s) { return SPOT_COL[spotDiff(s)]; }
+
 // ================= GIROSCOPIO (v0.75): el equilibrio de las verticales y de pinchar, inclinando el celu =================
 // Pedido de Vago. API del navegador (deviceorientation). En iPhone hay que pedir permiso con un toque, una sola vez
 // (solo anda en la versión instalable, con https). Al arrancar cada minijuego de equilibrio se toma la posición del celu
@@ -10733,7 +10754,7 @@ const GYRO = (() => {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.76 Alpha';
+const ALPHA_V = '0.77 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
