@@ -6270,6 +6270,8 @@ function afterPick(o, e, ev) {
   if (race.cold > 0) race.cold--;
   if (ev.unpinned) txt += ' · no pinchó';
   if (ev.hesito) txt += ' · dudaste en el despegue';
+  if (ev.passes) txt += ` · la barra fue y vino ×${ev.passes} (+${nf(ev.passT, 1)} s)`;
+  if (ev.aborted) txt += ' · frenaste y fuiste por lo seguro';
   if (ev.frozen) txt += ' · te frenaste: no decidiste a tiempo';
   else if (ev.pen > 0.03) txt += ' · decidiste tarde, con la cabeza cargada';
   txt += ` <span class="t">${nf(ev.time)} s</span>`;
@@ -10692,6 +10694,44 @@ function spotDiff(s) {
 }
 function spotDiffCol(s) { return SPOT_COL[spotDiff(s)]; }
 
+// ---- v0.78 (Vago): en las pistas también se ejecuta el skill con la barra de timing, como en los spots ----
+// La chance real de que salga define las zonas. Cada ida y vuelta de la aguja es tiempo que corre: un slow motion de la
+// decisión que en la carrera se paga (+0,35 s por pasada). Con B frenás y vas por el camino seguro (+0,5 s).
+const RACE_PASS_T = 0.35;
+{ const _res = resolve;
+  resolve = function (p, d, run, opt, r, isLast) {
+    const g = typeof race !== 'undefined' && race && race.forced;
+    if (!g || p !== P) return _res.apply(this, arguments);
+    race.forced = null;
+    const sf = run.stam / run.stamMax, m = margin(d, p, opt, sf), seq = [];
+    if (m < 0.08) seq.push(1);      // la duda ya la jugaste en la barra: no se tira otra vez
+    seq.push(g.hit ? 0 : 1);        // lo que pasó en la barra decide si sale
+    let i = 0; const rr = () => i < seq.length ? seq[i++] : r();
+    const ev = _res.call(this, p, d, run, opt, rr, isLast);
+    if (g.hit && g.zone === 'yellow' && ev.result === 'ok') ev.result = 'limite';
+    const pt = (g.passes || 0) * RACE_PASS_T; if (pt) { ev.time += pt; run.time += pt; ev.passes = g.passes; ev.passT = pt; }
+    return ev;
+  };
+}
+{ const _pick = pick;
+  pick = function (o, timedOut) {
+    if (timedOut || !race || race.anim || race.inMini || !o || !o.req || o.sprint || (typeof MINI === 'undefined') || MINI.isOff()) return _pick.apply(this, arguments);
+    const { run, track } = race, e = track[run.idx]; if (!e) return _pick.apply(this, arguments);
+    if (typeof stopTimer === 'function') stopTimer();
+    const sf = run.stam / run.stamMax, pen = typeof pressurePen === 'function' && race.calmIdx !== run.idx ? pressurePen() : 0;
+    const p = clamp(pSuccess(margin(race.d, P, o, sf) - pen + (race.bonus || 0)), 0.03, 0.97);
+    race.inMini = true;
+    MINI.play('timing', { p, fear: P.miedo, kind: e.kind || RACE_KIND[e.type], title: '⏱ ' + o.label }, g => {
+      race.inMini = false; show('race');
+      if (g.abort) { // frenaste: vas por lo seguro, que cuesta tiempo
+        const safe = e.options.filter(x => !x.req && !(x.skill && !P.skills[x.skill])).slice(-1)[0] || o;
+        run.time += 0.5; const before = run.log.length; _pick(safe, false); const ev = run.log[before]; if (ev) { ev.aborted = true; ev.time += 0.5; } return;
+      }
+      race.forced = g; _pick(o, false);
+    });
+  };
+}
+
 // ================= GIROSCOPIO (v0.75): el equilibrio de las verticales y de pinchar, inclinando el celu =================
 // Pedido de Vago. API del navegador (deviceorientation). En iPhone hay que pedir permiso con un toque, una sola vez
 // (solo anda en la versión instalable, con https). Al arrancar cada minijuego de equilibrio se toma la posición del celu
@@ -10754,7 +10794,7 @@ const GYRO = (() => {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.77 Alpha';
+const ALPHA_V = '0.78 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
