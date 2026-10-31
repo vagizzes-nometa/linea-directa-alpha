@@ -3254,17 +3254,23 @@ const MINI = (() => {
   // (y sube el riesgo si te caés). Con B abortás a tiempo, sin golpe.
   const SPEEDUP = 1.18, RISK_PASS = 0.2, MAX_PASS = 7;
   function timingZones(p) { const wPos = Math.max(0.1, Math.min(0.72, 0.08 + 0.66 * p)); const wG = wPos * Math.max(0.12, Math.min(0.85, 1.15 * p * p)); return { wPos, wG }; }
+  // retraso del toque: en pantallas táctiles la imagen va unos 70 ms atrás del dedo; con teclado o mouse, casi nada
+  const TAP_LAG = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 70 : 25);
   function timing(o) {
     const p = Math.max(0.03, Math.min(0.97, o.p)), { wPos, wG } = timingZones(p), c = wPos / 2 + Math.random() * (1 - wPos);
     let speed = 0.9 + (o.fear || 0) / 140, ph = 0, last = null, passes = 0;
     let x = 0, phase = 'go', at = 0, hit = false, q = 0, zone = null, aborted = false;
+    const hist = []; // v0.79: dónde estaba la aguja en los últimos cuadros, para compensar el retraso del toque
     return {
       skipP: p, title: o.title || '🎯 Intento', tip: 'Frená la aguja en el verde (seguro) o el amarillo (posible). B: abortar a tiempo',
       peek: () => ({ x, c, wPos, wG, passes, speed }),
       canAbort: true, abortOpen: () => phase === 'go',
       abort(now) { if (phase !== 'go') return false; phase = 'done'; aborted = true; at = now; sfx('blip'); fb('Abortaste a tiempo', 'good'); return true; },
       tap(now) {
-        if (phase !== 'go') return; phase = 'done'; at = now; const d = Math.abs(x - c);
+        if (phase !== 'go') return; phase = 'done'; at = now;
+        // en el celu la pantalla muestra la aguja un poco atrasada: se usa la posición de hace TAP_LAG ms (lo que viste al tocar)
+        const tl = now - TAP_LAG(); let xs = x; for (let i = hist.length - 1; i >= 0; i--) { if (hist[i][0] <= tl) { xs = hist[i][1]; break; } }
+        const d = Math.abs(xs - c);
         zone = d <= wG / 2 ? 'green' : d <= wPos / 2 ? 'yellow' : 'red';
         hit = zone === 'green' || (zone === 'yellow' && Math.random() < 0.35 + 0.4 * p);
         q = zone === 'green' ? 0.5 + 0.5 * (1 - d / (wG / 2)) : zone === 'yellow' && hit ? 0.1 : 0;
@@ -3275,7 +3281,7 @@ const MINI = (() => {
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
         if (phase === 'go') {
           ph += dt * speed * Math.PI; if (ph >= (passes + 1) * 2 * Math.PI) { passes++; speed *= SPEEDUP; if (passes >= 2) fb(`Más rápido · riesgo ↑`, 'bad'); }
-          x = 0.5 - 0.5 * Math.cos(ph);
+          x = 0.5 - 0.5 * Math.cos(ph); hist.push([now, x]); if (hist.length > 30) hist.shift();
           if (passes >= MAX_PASS) this.tap(now);
         }
         score(`Chance: ${Math.round(p * 100)}%${passes ? ` · ida y vuelta ×${passes}` : ''}`);
@@ -3293,7 +3299,7 @@ const MINI = (() => {
         g.fillStyle = passes >= 2 ? '#ff7b54' : '#ffd23f'; g.fillRect(bx + x * bw - 1, by - 3, 3, bh + 6);
         for (let i = 0; i < Math.min(passes, MAX_PASS); i++) { g.fillStyle = '#ff7b54'; g.fillRect(W - 10 - i * 5, 4, 3, 3); }
       },
-      result() { return aborted ? { abort: true, hit: false, q: 0, txt: '' } : { hit, q, zone, risk: 1 + RISK_PASS * passes, passes, txt: '' }; }
+      result() { return aborted ? { abort: true, hit: false, q: 0, txt: '' } : { hit, q, zone, risk: 1 + RISK_PASS * passes, passes, txt: '', barTxt: zone === 'green' ? '🟩 Frenaste en el verde.' : zone === 'yellow' ? (hit ? '🟨 Frenaste en el amarillo: salió por poco.' : '🟨 Frenaste en el amarillo: esta vez no salió.') : '🟥 Frenaste en el rojo.' }; }
     };
   }
 
@@ -5662,7 +5668,7 @@ function act(kind) {
   const title = battle.special === 'tecnica' ? `✨ Técnica: ${SKILLS[s.skill].name}` : battle.special === 'lejos' ? `💪 Más lejos: ${SKILLS[s.skill].name}` : battle.special ? `🔁 Repasar: ${SKILLS[s.skill].name}` : `${kind === 'tantear' ? '🧪 ' + s.pre : (flip ? '🤸 ' : '🎯 ') + SKILLS[s.skill].name}`;
   const go = g => { show('battle'); if (g.abort) return actAbort(kind); if (foc) battle.focus = false; if (kind === 'intentar' && PIN_SKILLS.has(s.skill) && g.hit) return pinBalance(g.zone === 'yellow' ? 0.7 : 0.35, '⚖️ Pinchar: ' + SKILLS[s.skill].name, r => { show('battle'); actResolve(kind, s, foc, f0, odds, r.hit ? g : Object.assign({}, g, { hit: false, soft: true, unpinned: true })); }); actResolve(kind, s, foc, f0, odds, g); };
   if (flip) MINI.play('cama', { bounces: 1, tries: 1, tol: Math.round(6 + 34 * odds.p), p: odds.p, title, abortable: true }, r => go({ abort: r.abort, hit: r.hit || r.lvl === 'regular', q: r.lvl === 'perfecto' ? 1 : r.lvl === 'regular' ? 0 : r.prec, lvl: r.lvl, zone: r.lvl === 'regular' ? 'yellow' : null, soft: r.lvl === 'malo' && odds.m > -0.05 && R() < 0.55, doubt: odds.doubt }));
-  else MINI.play('timing', { p: odds.p, fear: P.miedo, kind: spotKind(s), title }, r => go({ abort: r.abort, hit: r.hit, q: r.q, zone: r.zone, risk: r.risk, soft: r.zone === 'yellow' && !r.hit, doubt: odds.doubt }));
+  else MINI.play('timing', { p: odds.p, fear: P.miedo, kind: spotKind(s), title }, r => go({ barTxt: r.barTxt, abort: r.abort, hit: r.hit, q: r.q, zone: r.zone, risk: r.risk, soft: r.zone === 'yellow' && !r.hit, doubt: odds.doubt }));
 }
 const MINI_INTRO = {
   introBarra: ['La aguja va y viene por la barra. Apretá A (o tocá) para frenarla.', '🟩 Verde: seguro, sale. 🟨 Amarillo: posible, puede salir o no. 🟥 Rojo: no llegás y te golpeás.', 'Cuanto mejor te da el cuerpo, más grandes las zonas. El miedo acelera la aguja.', 'Si no te convence, apretá B (o "Abortar") y frenás a tiempo, sin golpe. Pero cada ida y vuelta la aguja va más rápido y, si te caés, te golpeás más.'],
@@ -5686,6 +5692,7 @@ function actResolve(kind, s, foc, f0, odds, g) {
   P.focusBonus = (battle.visual ? 0.015 : 0) + (foc ? 0.01 : 0) - (battle.special === 'lejos' ? 0.06 : 0) - (blindJump(kind) ? 0.03 : 0);
   const f1 = P.fatiga, m1 = P.miedo;
   const res = spotAction(P, s, kind, R, g);
+  if (g && g.barTxt && kind === 'intentar') res.lines.unshift(g.barTxt);
   if (blindJump(kind)) { if (res.result === 'ok') res.lines.push('Salió, pero a ciegas: no lo mediste.'); else { P.miedo = clamp(P.miedo + 2, 0, 100); res.lines.push('No lo habías medido: no sabías dónde ibas a caer (+2 miedo).'); } res.lines.push(...tutorial('ciego', ['Vago: ¿Lo mediste? Sin medir, la barra te miente un poco y, si abortás, dudás sin saber por qué. Medir no cansa.'])); }
   if (g && g.unpinned) res.lines.unshift('Caíste en el borde, pero no pinchó: se te fue el equilibrio.');
   if (battle.special === 'lejos' && res.result === 'ok') { const st = farStat(s); if (st === 'bj') P.bj += 0.004; else if (st) P.vj += 0.002; addPulido(P, s.skill, 2); res.lines.push('Más lejos que de costumbre: la potencia sube de a poco.'); }
@@ -6270,6 +6277,7 @@ function afterPick(o, e, ev) {
   if (race.cold > 0) race.cold--;
   if (ev.unpinned) txt += ' · no pinchó';
   if (ev.hesito) txt += ' · dudaste en el despegue';
+  if (ev.zone) txt += ev.zone === 'green' ? ' · 🟩' : ev.zone === 'yellow' ? ' · 🟨' : ' · 🟥';
   if (ev.passes) txt += ` · la barra fue y vino ×${ev.passes} (+${nf(ev.passT, 1)} s)`;
   if (ev.aborted) txt += ' · frenaste y fuiste por lo seguro';
   if (ev.frozen) txt += ' · te frenaste: no decidiste a tiempo';
@@ -10709,6 +10717,7 @@ const RACE_PASS_T = 0.35;
     let i = 0; const rr = () => i < seq.length ? seq[i++] : r();
     const ev = _res.call(this, p, d, run, opt, rr, isLast);
     if (g.hit && g.zone === 'yellow' && ev.result === 'ok') ev.result = 'limite';
+    ev.zone = g.zone;
     const pt = (g.passes || 0) * RACE_PASS_T; if (pt) { ev.time += pt; run.time += pt; ev.passes = g.passes; ev.passT = pt; }
     return ev;
   };
@@ -10794,7 +10803,7 @@ const GYRO = (() => {
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.78 Alpha';
+const ALPHA_V = '0.79 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
