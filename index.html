@@ -4342,7 +4342,7 @@ function afterStep() {
   if (maybeMeetValen() || maybeTeachWarmup()) return;
   const ex = exitAt(P.pos.x, P.pos.y);
   if (ex && ex.to === 'back') { const bf = P.backFrom || { map: 'barrio', x: BX(6), y: BY(8) }; return travelTo(bf.map, bf.x, bf.y, 'down', null); }
-  if (ex && !(ex.need && P.level < ex.need)) { if (ex.mins) { useSlot(ex.mins); return travelTo(ex.to, ex.tx, ex.ty, ex.dir, null); } return travelTo(ex.to, ex.tx, ex.ty, ex.dir, MAPS[curMap].walk || MAPS[ex.to].walk ? 'walk' : null); }
+  if (ex && !(ex.need && P.level < ex.need && !(typeof questPass === 'function' && questPass(ex.to)))) { if (ex.mins) { useSlot(ex.mins); return travelTo(ex.to, ex.tx, ex.ty, ex.dir, null); } return travelTo(ex.to, ex.tx, ex.ty, ex.dir, MAPS[curMap].walk || MAPS[ex.to].walk ? 'walk' : null); }
   save();
 }
 function enterHome() {
@@ -4419,6 +4419,7 @@ function render() {
   if (typeof occluders === 'function') occluders(c, objs, px, py); // árboles y muebles que quedan delante (más al sur) de alguien
   objs.sort((a, b) => a.y - b.y).forEach(o => o.d());
   if (typeof drawFiesta === 'function') drawFiesta(c);
+  if (typeof drawQuestMarks === 'function') drawQuestMarks(c);
   if (typeof drawTapMark === 'function') drawTapMark(c);
   if (P.duelPend && !moving) setTimeout(runDuelInvite, 0);
   if (P.olaPend && curScreen() === 'world' && $('#modal').hidden && $('#textbox').hidden && !moving) setTimeout(() => { if (P.olaPend && curScreen() === 'world' && $('#modal').hidden && $('#textbox').hidden) olaPrompt(); }, 0);
@@ -4459,7 +4460,7 @@ function interactAt(x, y, bump) {
   const s = mapSpots().find(s => s.x === x && s.y === y);
   if (s) { startBattle(s); return; }
   const ex = exitAt(x, y);
-  if (ex && ex.need && P.level < ex.need) { say(['La Ruta 1 sale de acá hacia Villa Resorte.', `Se habilita cuando subas al nivel ${LEVELS[ex.need].name}.`]); return; }
+  if (ex && ex.need && P.level < ex.need && !(typeof questPass === 'function' && questPass(ex.to))) { say(['La Ruta 1 sale de acá hacia Villa Resorte.', `Se habilita cuando subas al nivel ${LEVELS[ex.need].name}.`]); return; }
   const gt = gateAt(x, y);
   if (gt && P.level < gt.need) { say([gt.id === 'valla' ? 'Una valla de obra corta la calle. Del otro lado se ve el Parque del Lago.' : 'La barrera del paso a nivel está baja. Del otro lado, la Estación.', `Se habilita cuando subas al nivel ${LEVELS[gt.need].name}.`]); return; }
   if (circusDoor(x, y)) return openCirco();
@@ -4676,7 +4677,7 @@ function night(dayMsgs, wasRest) {
   body.innerHTML = dayMsgs.map(t => `<p>${t}</p>`).join('');
   acts.innerHTML = '';
   const finish = extra => {
-    const sb = sleepBounds(), sfx = Math.min(1, P.sleepF ?? 1);
+    const sb = sleepBounds(), sfx = Math.min(1, P.sleepF ?? 1), e0 = Math.round(P.energia ?? 60), f0 = P.fatiga;
     if (P.trainedDay !== P.day && !P.lesion) addFun(P, 'descanso', 8); // un día sin entrenar también llena
     if (P.trainedDay === P.day && P.trainedDay2 === P.day - 1 && P.trainedDay3 === P.day - 2) addFun(P, 'disciplina', -3); // tres días seguidos sin parar
     P.trainedDay3 = P.trainedDay2; P.trainedDay2 = P.trainedDay;
@@ -4699,7 +4700,7 @@ function night(dayMsgs, wasRest) {
     { const md = moodState(P); if (md === 'contento' || md === 'enfocado') P.miedo = clamp(P.miedo - 2, 0, 100); if (md === 'bajon') { P.hambre = clamp((P.hambre || 0) + 4, 0, 100); P.miedo = clamp(P.miedo + 1, 0, 100); } }
     if (noDinner) { P.hambre = clamp((P.hambre || 0) + 10, 0, 100); sl.unshift('Te acostaste sin cenar: a la madrugada el hambre te despertó.'); }
     sl.push(...updateHunger());
-    sl.unshift(`Dormiste ${nf(sb.hrs, 1)} h (recuperación ${Math.round((P.sleepF ?? 1) * 100)}%).`);
+    const recPct = Math.min(100, Math.round((P.sleepF ?? 1) * 100));
     if (typeof lateNightLines === 'function') sl.unshift(...lateNightLines(sb.bed));
     if (sb.hrs < 7) { const fx = Math.round((7 - sb.hrs) * 4); P.fatiga = clamp(P.fatiga + fx, 0, 100); sl.splice(1, 0, `Dormiste poco: el cuerpo no termina de reponerse (+${fx} fatiga).`); }
     const away = P.sleepHow && P.sleepHow !== 'casa' && curMap !== 'hogar' && curMap !== 'barrio';
@@ -4707,7 +4708,15 @@ function night(dayMsgs, wasRest) {
     if (homeTown === 'hogar') { useMap('hogar'); P.map = 'hogar'; P.pos = { x: 8, y: 3, dir: 'up' }; } else P.pos = away && P.sleepPos ? P.sleepPos : homePos();
     P.sleepHow = null; P.sleepPos = null;
     setClock(P.wake ?? 480); P.wake = null; P.sleepF = null; P.bedShift = 0;
-    P.energia = clamp(Math.round(30 + 40 * sfx - (noDinner ? 20 : 0) + (homeTown === 'hogar' ? 0 : 10)), 10, 100); // dormir también carga energía
+    // v0.80 (Vago): la energía de la mañana depende de la noche y de la cena; dormir de más deja modorra
+    const dinnerE = noDinner ? -20 : hv >= 1.5 ? -6 : P.dinnerPlan ? 4 : 0; P.dinnerPlan = false;
+    const over = Math.max(0, sb.hrs - 10), grogE = Math.min(20, Math.round(over * 10));
+    P.energia = clamp(Math.round(30 + 40 * sfx + dinnerE - grogE + (homeTown === 'hogar' ? 0 : 10)), 10, 100); // dormir también carga energía
+    P.grog = over > 0 ? { day: P.day, until: 720 } : null;
+    { const dF = Math.round(P.fatiga - f0), dE = Math.round(P.energia - e0);
+      sl.unshift(`🌙 Te acostaste a las ${clockTxt(sb.bed)} y dormiste ${nf(sb.hrs, 1)} h (recuperación ${recPct}%): energía ${dE >= 0 ? '+' : ''}${dE} (quedás en ${Math.round(P.energia)}), fatiga ${dF <= 0 ? '−' + Math.abs(dF) : '+' + dF}.`);
+      if (dinnerE > 0) sl.push('La cena del plan te dejó el tanque bien cargado (+4 energía).'); else if (dinnerE === -6) sl.push('La cena pesada te dejó con menos energía (−6).');
+      if (over > 0) sl.push(`😴 Dormiste de más: te levantás con modorra (−${grogE} energía) y hasta el mediodía leés peor los saltos.`); }
     const all = [...dayMsgs, ...extra, ...sl];
     P.feed = [...(P.feed || []), ...all.map(t => `<b>D${P.day - 1}</b> ${t}`)].slice(-40);
     body.innerHTML += extra.concat(sl).map(t => `<p>${t}</p>`).join('');
@@ -5090,7 +5099,7 @@ function eatFood(f, where) {
   if (where === 'casa' && !(P.tut || {}).porcion && P.nutriMet) { P.tut.porcion = true; P.pendMsg = [P.pendMsg, P.nutriMet ? 'La nutri dejó las porciones calculadas: en tu casa la cantidad la decide el plan (lo ves en la heladera). En el kiosco elegís vos.' : 'En casa la cantidad la decide tu vieja: lo que hace falta para arrancar. En el kiosco elegís vos.'].filter(Boolean).join(' '); }
   const pr = where === 'bag' ? 0 : where === 'hostel' ? 4 : foodPrice(f); if (!canPay(pr)) return; if (pr) money(-pr);
   if (['casa', 'hostel', 'amigo'].includes(where)) f = planPortion(f);
-  markMeal(f); if (mealOf(P.min ?? 480) === 'cena' && (['casa', 'hostel', 'amigo'].includes(where) || f.carb >= 25)) P.dinnerDay = P.day;
+  markMeal(f); if (mealOf(P.min ?? 480) === 'cena' && (['casa', 'hostel', 'amigo'].includes(where) || f.carb >= 25)) { P.dinnerDay = P.day; P.dinnerPlan = ['casa', 'hostel', 'amigo'].includes(where) && !f.antojo; }
   if (f.agua) P.fatiga = clamp(P.fatiga - 3, 0, 100);
   const night = P.slot === 2 ? 1.5 : 1;
   const e0 = P.energia ?? 60, surplus = Math.max(0, e0 + f.carb - 100);
@@ -5266,7 +5275,7 @@ function openWorldMap() {
     for (const n of WORLD) {
       if (!kp[n.id]) continue;
       if (kp[n.id] === 'rumor') { g.fillStyle = '#283050'; g.fillRect(n.x - 6, n.y - 6, 12, 12); g.fillStyle = '#cfd3dc'; g.font = 'bold 10px monospace'; g.textAlign = 'center'; g.fillText('?', n.x, n.y + 4); continue; }
-      const open = P.level >= n.need;
+      const open = P.level >= n.need || (typeof questPass === 'function' && questPass(n.map));
       if (n.route) { g.fillStyle = open ? '#f08a24' : '#8a8f9c'; g.fillRect(n.x - 3, n.y - 3, 6, 6); }
       else { g.fillStyle = '#283050'; g.fillRect(n.x - 7, n.y - 7, 14, 14); g.fillStyle = open ? (n.id === 'puerto' ? '#e94b8a' : '#f8f4e3') : '#8a8f9c'; g.fillRect(n.x - 5, n.y - 5, 10, 10); if (!open) { g.fillStyle = '#283050'; g.fillRect(n.x - 2, n.y - 1, 4, 4); g.fillRect(n.x - 1, n.y - 3, 2, 2); } }
       if (n.route) continue; // las rutas sin nombre: el mapa respira
@@ -6912,7 +6921,7 @@ function pickAlarm(done, forced) {
   const list = el('div', 'alarms');
   for (const w of ALARMS) {
     const o = opt(w), pct = Math.round(o.f * 100);
-    const b = el('button', 'session alarm' + (o.hrs >= 8 && o.hrs < 9.5 ? ' picked' : ''), `<b>${clockTxt(w)}</b><span>${nf(o.hrs, 1)} h de sueño</span><div class="bar ${pct >= 95 ? 'good' : pct >= 75 ? '' : 'warn'}"><i style="width:${Math.min(100, pct)}%"></i></div><em>recuperación ${pct}%${w >= 630 ? ' · perdés la mañana' : ''}</em>`);
+    const b = el('button', 'session alarm' + (o.hrs >= 8 && o.hrs < 9.5 ? ' picked' : ''), `<b>${clockTxt(w)}</b><span>${nf(o.hrs, 1)} h de sueño${o.hrs > 10 ? ' · 😴 modorra' : ''}</span><div class="bar ${pct >= 95 ? 'good' : pct >= 75 ? '' : 'warn'}"><i style="width:${Math.min(100, pct)}%"></i></div><em>recuperación ${pct}%${w >= 630 ? ' · perdés la mañana' : ''}</em>`);
     b.onclick = () => { m.hidden = true; go(o); }; list.appendChild(b);
   }
   acts.appendChild(list);
@@ -10598,6 +10607,12 @@ setInterval(() => {
   P.map = curMap; if (rescuePos()) { renderHud(); say(['Saliste por la puerta.']); }
 }, 700);
 
+// ---- v0.80: la modorra de dormir de más: hasta el mediodía leés peor los saltos (−0,03 de margen) ----
+const grogNow = () => P && P.grog && P.grog.day === P.day && (P.min ?? 0) < P.grog.until;
+{ const _mg = margin;
+  margin = function (d, p, opt, sf) { const m = _mg.apply(this, arguments); return p === P && grogNow() ? m - 0.03 : m; };
+}
+
 // ================= MÓDULOS DE PISTA (v0.73): elementos reales tomados de los módulos de Parkour Projects =================
 // Referencia: el croquis de Vago (pista "sp 2" y su sistema de módulos: cubo de 1,22 m con alturas .40 / .80 / 1.20,
 // escalonado 1.20 → 2.20, barras superiores, muro sobresaliente, pared inclinada). Las medidas son las reales de la pista
@@ -10800,10 +10815,111 @@ const GYRO = (() => {
 { const st = document.createElement('style'); st.textContent = `body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   input, textarea, [contenteditable="true"], .al-panel textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }`; document.head.appendChild(st); }
 
+// ================= MISIONES (v0.80): sidequests para salir del barrio =================
+// Nota de Vago: "pasar los niveles de barrio en el mismo mapa es aburrido; necesitamos que te obligue a viajar".
+// Son opcionales (reputación, skills, contactos, plata). Mixtas: unas escritas a mano, con personajes y su historia,
+// y otras generadas ("X quiere probar tal salto en tal lugar, ¿lo acompañás?"). Mientras una misión está activa,
+// el camino hasta su lugar queda abierto aunque tu nivel todavía no lo habilite: vas acompañado.
+const QUEST_FIXED = [
+  { id: 'cami_oeste', who: 'Cami', lvl: 0, day: 6, map: 'plaza2', spot: true, title: 'Los bloques del Oeste',
+    text: 'Cami: ¿Me acompañás a la Plaza del Oeste? Dicen que los bloques escalonados te enseñan el kong precision. Sola me da cosa.',
+    done: ['Llegás con Cami a los bloques del Oeste. Los miran un rato largo, midiendo con los pasos.', 'Cami: ¡Gracias por venir! Ahora sé por dónde empezar.'],
+    reward: { rep: 3, fun: 6, heard: ['kongpre'] } },
+  { id: 'juani_jam', who: 'Juani', lvl: 1, day: 8, map: 'alamos', any: true, title: 'Jam en Los Álamos',
+    text: 'Juani: Este finde hay jam en Los Álamos: la gente de allá entrena en el club. No tengo con quién ir... ¿venís? Vamos por la Ruta 1.',
+    done: ['Llegás a Los Álamos con Juani. Hay música, gente saltando por todos lados y alguien clava un aerial perfecto.', 'Juani te presenta como "el del barrio". Te quedan un par de nombres y un par de trucos en la cabeza.'],
+    reward: { rep: 6, fun: 12, heard: ['aerial', 'frontflip'], place: 'alamos' } },
+  { id: 'lauti_longi', who: 'Lauti', lvl: 1, day: 12, map: 'ruta1', x: 32, y: 20, r: 2, title: 'El longi del río',
+    text: 'Lauti: Quiero intentar el longi del río, en la Ruta 1. Solo no me animo: si me caigo al agua, que alguien se ría conmigo. ¿Venís?',
+    done: ['Lauti mide, duda, mide de nuevo... y lo salta. Grita como si hubiera ganado un torneo.', 'Lauti: Ahora vos. Cuando te animes, yo te espero acá.'],
+    reward: { rep: 4, fun: 8, miedo: -4 } },
+  { id: 'mati_villa', who: 'Mati', lvl: 2, day: 16, map: 'villa', any: true, title: 'Dobles en Villa Resorte',
+    text: 'Mati: Me ofrecieron hacer de doble en un video en Villa Resorte y necesitan dos. ¿Te sumás? Pagan.',
+    done: ['Grabaron toda la tarde: saltos, caídas y una toma que repitieron veinte veces.', 'Te pagan $12 y el director se guarda tu número.'],
+    reward: { rep: 5, money: 12, fun: 6 } }
+];
+const QUEST_WHO = ['Mati', 'Juani', 'Lauti', 'Cami'];
+function QS() { P.quests = P.quests || { active: [], done: {}, declined: {}, lastGen: 0, lastOffer: 0 }; return P.quests; }
+// el camino: las rutas del mapa mundi entre tu barrio y el lugar de la misión
+function questPath(map) { const i = WORLD.findIndex(n => n.map === map), b = WORLD.findIndex(n => n.id === 'barrio'); if (i < 0) return [map]; const lo = Math.min(i, b), hi = Math.max(i, b); return WORLD.slice(lo, hi + 1).map(n => n.map).filter(Boolean); }
+function questPass(map) { if (typeof P === 'undefined' || !P || !P.quests) return false; return QS().active.some(q => (q.pass || []).includes(map)); }
+const mapName = id => (MAPS[id] && MAPS[id].name) || (WORLD.find(n => n.map === id) || {}).name || id;
+function questTarget(q) {
+  if (q.spot && !q.x) { const sp = SPOTS.find(s => s.map === q.map && s.x != null); if (sp) { q.x = sp.x; q.y = sp.y; q.r = 2; } else q.any = true; }
+  return q;
+}
+function questFromFixed(f) { return questTarget(Object.assign({ until: P.day + 7, pass: questPath(f.map), fixed: true }, JSON.parse(JSON.stringify(f)))); }
+function questGenerate() {
+  const reach = WORLD.filter(n => n.map && n.map !== 'barrio' && !n.route && n.need <= P.level + 1).map(n => n.map);
+  const cands = SPOTS.filter(s => s.map && reach.includes(s.map) && s.x != null);
+  if (!cands.length) return null;
+  const sp = cands[Math.floor(R() * cands.length)], who = QUEST_WHO[Math.floor(R() * QUEST_WHO.length)];
+  const lines = [`${who}: Quiero probar ${sp.name.toLowerCase()} en ${mapName(sp.map)}. ¿Me acompañás? Es mejor con alguien que mida conmigo.`,
+    `${who}: Me dijeron que en ${mapName(sp.map)} está ${sp.name.toLowerCase()}. ¿Vamos juntos un día de estos?`];
+  return { id: 'gen' + P.day + '_' + sp.id, who, map: sp.map, x: sp.x, y: sp.y, r: 2, spotId: sp.id, title: `${who}: ${sp.name}`, text: lines[Math.floor(R() * lines.length)],
+    until: P.day + 5, pass: questPath(sp.map), reward: { rep: 3, fun: 6, seen: sp.id } };
+}
+function questReward(q) {
+  const rw = q.reward || {}, out = [...(q.done || [`Acompañaste a ${q.who}. Lo intenta un par de veces y se va contento. Te agradece la compañía.`])];
+  if (rw.rep) { addRep(rw.rep); out.push(`+${rw.rep} reputación.`); }
+  if (rw.fun) addFun(P, 'logro', rw.fun);
+  if (rw.money) money(rw.money);
+  if (rw.miedo) P.miedo = clamp(P.miedo + rw.miedo, 0, 100);
+  for (const k of rw.heard || []) if (knowSkill(k, 'watched', q.who)) out.push(`📓 Anotado en tu cuaderno: ${SKILLS[k].name}.`);
+  if (rw.place) knowPlace(rw.place, 'visited');
+  if (rw.seen) P.seen[rw.seen] = true;
+  P.friends = P.friends || {}; P.friends[q.who] = Math.min(3, (P.friends[q.who] || 0) + 1);
+  return out;
+}
+// ofrecer: como mucho una cada dos días, de mañana o al mediodía, cuando estás caminando sin nada abierto
+function questOffer() {
+  const Q = QS(); if (P.day - Q.lastOffer < 2 || (P.min ?? 0) > 1080) return;
+  let q = null;
+  const f = QUEST_FIXED.find(f => !Q.done[f.id] && P.level >= f.lvl && P.day >= f.day && !Q.active.some(a => a.id === f.id) && !((Q.declined[f.id] || -99) > P.day - 4));
+  if (f) q = questFromFixed(f);
+  else if (!Q.active.some(a => !a.fixed) && P.day - Q.lastGen >= 3) { q = questGenerate(); Q.lastGen = P.day; }
+  if (!q) return;
+  Q.lastOffer = P.day;
+  ask(`📱 ${q.who} te escribe`, [q.text, `📍 ${mapName(q.map)} · tenés ${q.until - P.day} días.${P.level < ((WORLD.find(n => n.map === q.map) || {}).need || 0) ? ' Vas acompañado: el camino queda abierto aunque tu nivel todavía no lo habilite.' : ''}`], [
+    { label: 'Dale, vamos', primary: true, fn: () => { Q.active.push(q); save(); say([`📍 Misión: ${q.title}. La ves en el menú → Estado.`]); } },
+    { label: 'Ahora no', fn: () => { if (q.fixed) Q.declined[q.id] = P.day; save(); } }]);
+}
+function questTick() {
+  const Q = QS();
+  for (const q of Q.active.slice()) {
+    if (P.day > q.until) { Q.active.splice(Q.active.indexOf(q), 1); if (q.fixed) Q.declined[q.id] = P.day; P.pendMsg = [P.pendMsg, `📱 ${q.who}: Al final fui solo. La próxima vamos juntos.`].filter(Boolean).join(' '); continue; }
+    if (curMap !== q.map || MAPS[curMap].indoor) continue;
+    if (!q.any && Math.abs(P.pos.x - q.x) + Math.abs(P.pos.y - q.y) > (q.r || 2)) continue;
+    Q.active.splice(Q.active.indexOf(q), 1); Q.done[q.id] = P.day; SND.play('master');
+    const lines = questReward(q); save(); renderHud(); return say([`✅ ${q.title}`, ...lines]);
+  }
+}
+setInterval(() => {
+  if (typeof P === 'undefined' || !P || !P.pos || P.explore || typeof curScreen !== 'function' || curScreen() !== 'world' || moving) return;
+  if (!$('#modal').hidden || !$('#textbox').hidden || (typeof CUT !== 'undefined' && curScreen() === 'cut')) return;
+  questTick(); if ($('#modal').hidden && $('#textbox').hidden && (P.day || 0) >= 3) questOffer();
+}, 900);
+// la estrella sobre el lugar de la misión
+function drawQuestMarks(c) {
+  if (!P || !P.quests) return;
+  for (const q of P.quests.active) { if (q.map !== curMap || q.any || q.x == null) continue;
+    const x = q.x * TS + 4, y = q.y * TS - 22 - (Math.floor(frameT / 350) % 2);
+    c.fillStyle = '#283050'; c.fillRect(x - 1, y - 1, 10, 10); c.fillStyle = '#ffd23f'; c.fillRect(x + 3, y, 2, 8); c.fillRect(x, y + 3, 8, 2); c.fillRect(x + 1, y + 1, 6, 6); c.fillStyle = '#fff3b0'; c.fillRect(x + 3, y + 2, 2, 2); }
+}
+// en el menú → Estado
+{ const _me = menuEstado;
+  menuEstado = function (box) {
+    const r = _me.apply(this, arguments);
+    const A = (P.quests && P.quests.active) || [];
+    const sec = el('div', 'quests', `<h3 class="sect">📍 Misiones</h3>${A.length ? A.map(q => `<p class="note"><b>${q.title}</b> · ${mapName(q.map)}${q.any ? '' : ' (la ★ marca el lugar)'} · quedan ${Math.max(0, q.until - P.day)} días</p>`).join('') : '<p class="note">Ninguna por ahora. Tus amigos te escriben cuando quieren ir a algún lado.</p>'}`);
+    box.appendChild(sec); return r;
+  };
+}
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.79 Alpha';
+const ALPHA_V = '0.80 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
