@@ -10916,10 +10916,49 @@ function drawQuestMarks(c) {
   };
 }
 
+// ================= MAPAS DE PAÍS Y CONTINENTE CON SPOTS (v0.81) =================
+// San Ferro, Las Toscas, la Capital y las rutas 4 y 5 existían pero sin spots: al llegar a País no había nada para hacer.
+// Decisión de Vago (01/11): los saltos más grandes son otros spots, en otros mapas, "y no siempre nuevos". Por eso acá
+// se repiten skills conocidos con medidas de su nivel (área 3 = País, área 4 = Continente): sirven para técnica,
+// fortalecimiento y para dominarlos en grande (y lo que se domina acá se lleva a la pista).
+const SPOTS2 = [
+  // ---- San Ferro (País): el pueblo del ferrocarril ----
+  { id: 'fe-anden', map: 'ferro', area: 3, skill: 'kongpre', kind: 'blocks', name: 'Los andenes viejos', place: 'San Ferro', x: 14, y: 13,
+    req: T => ({ stat: 'kp', v: T.bj * 0.98 }), detail: r => `kong precision de ${fmtFt(r.v)} entre andén y andén`, pre: 'Kong precision al cordón del andén', fat: 8 },
+  { id: 'fe-vagones', map: 'ferro', area: 3, skill: 'lache', kind: 'bars', name: 'Los enganches de los vagones', place: 'San Ferro', x: 22, y: 14,
+    req: T => ({ stat: 'cat', v: T.bj * 1.08 }), detail: r => `${fmtFt(r.v)} de caño a caño, colgado sobre las vías`, pre: 'Balanceos en un solo caño', fat: 8 },
+  { id: 'fe-tanque', map: 'ferro', area: 3, skill: 'wallrun', kind: 'wall', name: 'El tanque de agua', place: 'San Ferro', x: 46, y: 13,
+    req: T => ({ stat: 'wr', v: T.wr * 1.06 }), detail: r => `la base del tanque: ${fmtM(r.v)} de pared lisa`, pre: 'Wall runs a la pared de la boletería', fat: 8 },
+  // ---- Las Toscas (País): rocas y escollera ----
+  { id: 'to-rocas', map: 'toscas', area: 3, skill: 'precision', kind: 'rail', name: 'Las rocas de la costa', place: 'Las Toscas', x: 32, y: 15,
+    req: T => ({ stat: 'bj', v: T.bj * 0.95, tecMix: true }), detail: r => `${fmtFt(r.v)} de roca a roca, con la punta mojada`, pre: 'Precisiones a rocas grandes', fat: 7 },
+  { id: 'to-escollera', map: 'toscas', area: 3, skill: 'stride', kind: 'blocks', name: 'La escollera', place: 'Las Toscas', x: 8, y: 16,
+    req: T => ({ stat: 'bj', v: T.bj * 0.96, tecMix: true }), detail: r => `bloques de piedra separados ${fmtFt(r.v)}, sin frenar`, pre: 'Zancadas en los bloques del medio', fat: 7 },
+  { id: 'to-muralla', map: 'toscas', area: 3, skill: 'catleap', kind: 'wall', name: 'La muralla del fuerte', place: 'Las Toscas', x: 30, y: 10,
+    req: T => ({ stat: 'cat', v: T.bj * 0.98 }), detail: r => `${fmtFt(r.v)} desde la piedra hasta la muralla`, pre: 'Cat leaps cortos a la muralla baja', fat: 7 },
+  // ---- Rutas 4 y 5 (País) ----
+  { id: 'r4-alcantarilla', map: 'ruta4', area: 3, skill: 'tictac', kind: 'tictac', name: 'La alcantarilla', place: 'Ruta 4', x: 18, y: 14,
+    req: T => ({ stat: 'wr', v: T.wr * 0.98 }), detail: r => `pisás la pared de cemento para cruzar ${fmtM(r.v)} de zanja`, pre: 'Pasos a la pared sin zanja', fat: 7 },
+  { id: 'r4-terraplen', map: 'ruta4', area: 3, skill: 'gainer', kind: 'flat', name: 'El terraplén', place: 'Ruta 4', x: 40, y: 12,
+    req: T => ({ stat: 'flip', v: T.vj * 1.06 }), detail: r => `${Math.round(r.v * 100)} cm de altura útil, cayendo en tierra`, pre: 'Gainers a la loma de pasto', fat: 9 },
+  { id: 'r5-piedras', map: 'ruta5', area: 3, skill: 'precision', kind: 'rail', name: 'Las piedras del arroyo', place: 'Ruta 5', x: 20, y: 5,
+    req: T => ({ stat: 'bj', v: T.bj * 0.99, tecMix: true }), detail: r => `${fmtFt(r.v)} a una piedra que se mueve un poco`, pre: 'Precisiones a piedras firmes', fat: 7 },
+  { id: 'r5-cantera', map: 'ruta5', area: 3, skill: 'wallflip', kind: 'wall', name: 'El paredón de la cantera', place: 'Ruta 5', x: 30, y: 26,
+    req: T => ({ stat: 'flip', v: T.vj * 0.78 }), detail: r => `con un paso en la piedra: ${Math.round(r.v * 100)} cm de altura útil`, pre: 'Pasos a la pared y caída de espaldas', fat: 8 },
+  // ---- La Capital (Continente) ----
+  { id: 'ca-escalinata', map: 'capital', area: 4, skill: 'kongpre', kind: 'blocks', name: 'La escalinata del museo', place: 'La Capital', x: 12, y: 16,
+    req: T => ({ stat: 'kp', v: T.bj * 1.0 }), detail: r => `kong precision de ${fmtFt(r.v)} sobre los escalones`, pre: 'Kong precision a un escalón', fat: 9 },
+  { id: 'ca-monumento', map: 'capital', area: 4, skill: 'lache', kind: 'bars', name: 'Las rejas del monumento', place: 'La Capital', x: 38, y: 17,
+    req: T => ({ stat: 'cat', v: T.bj * 1.1 }), detail: r => `${fmtFt(r.v)} de reja a reja`, pre: 'Lache corto entre rejas bajas', fat: 9 },
+  { id: 'ca-estacionamiento', map: 'capital', area: 4, skill: 'precision', kind: 'rail', name: 'El estacionamiento en altura', place: 'La Capital', x: 26, y: 19,
+    req: T => ({ stat: 'bj', v: T.bj * 1.0, tecMix: true }), detail: r => `precisión de ${fmtFt(r.v)} entre dos barandas, con caída`, pre: 'Precisiones largas al piso', fat: 8 }
+];
+for (const s of SPOTS2) { const M = MAPS[s.map]; if (!M || !M.blocked[s.y] || M.blocked[s.y][s.x]) continue; SPOTS.push(s); M.blocked[s.y][s.x] = true; M.canvas = null; }
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.80 Alpha';
+const ALPHA_V = '0.81 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
@@ -10992,7 +11031,7 @@ const AL = (() => {
       <h3>Partida</h3><p class="al-small">Guardá una copia de tu partida o pasala a otro teléfono.</p>
       <div class="al-row"><button class="al-btn" id="al-sexp">Exportar partida</button><button class="al-btn" id="al-simp">Importar partida</button></div>
       <div id="al-imp" hidden><textarea id="al-imptxt" placeholder="Pegá acá el texto de la partida"></textarea><div class="al-row"><button class="al-btn warn" id="al-impgo">Reemplazar mi partida con esta</button></div></div>
-      <h3>Editor de mapas</h3><div class="al-row"><button class="al-btn" id="al-ed">🗺️ Abrir el editor</button></div>`;
+      <h3>Editor de mapas</h3><div class="al-row"><button class="al-btn" id="al-ed">🗺️ Abrir el editor</button><button class="al-btn" id="al-edhere">✏️ Editar el mapa donde estoy</button></div>`;
     document.body.appendChild(ov);
     const msg = t => { $('#al-msg').textContent = t || ''; };
     const list = $('#al-list');
@@ -11010,6 +11049,7 @@ const AL = (() => {
       catch (e) { msg('Ese texto no es una partida.'); }
     };
     $('#al-ed').onclick = () => { close(); if (typeof ED !== 'undefined') ED.open(); };
+    { const bh = $('#al-edhere'); const ok = typeof P !== 'undefined' && P && typeof curScreen === 'function' && ['world', 'place'].includes(curScreen()); if (bh) { bh.hidden = !ok; bh.onclick = () => { close(); ED.editHere(); }; } }
     if (tab === 'nota') setTimeout(() => { const t = $('#al-txt'); if (t) t.focus(); }, 50);
   }
   function close() { const o = $('#al-ov'); if (o) o.remove(); }
@@ -11290,7 +11330,9 @@ const ED = (() => {
     $('#ed-test').onclick = testWalk;
     $('#ed-more').onclick = () => dialog('Mapa', `<label>Nombre<input id="ed-f-mn" value="${esc(cur.name)}"></label><label>Notas del mapa (para Claude)<textarea id="ed-f-mnotes">${esc(cur.notes || '')}</textarea></label><label><input type="checkbox" id="ed-f-in" ${cur.indoor ? 'checked' : ''} style="width:auto"> Es un lugar de adentro</label>`,
       [['Guardar', () => { snap(); cur.name = $('#ed-f-mn').value.trim() || cur.name; cur.notes = $('#ed-f-mnotes').value.trim(); cur.indoor = $('#ed-f-in').checked; $('#ed-name').textContent = cur.name; changed(); }, true],
-       ['Exportar', async () => { alertMsg(await AL.shareText(`mapa_${cur.name.replace(/\W+/g, '_')}.txt`, exportMap(cur)) || 'Listo.'); }], ['Cerrar', () => {}]]);
+       ['Exportar', async () => { alertMsg(await AL.shareText(`mapa_${cur.name.replace(/\W+/g, '_')}.txt`, exportMap(cur)) || 'Listo.'); }],
+       ...(cur.from ? [['🎮 Aplicar al juego', () => { persist(); const err = applyToGame(cur); if (err) { setTimeout(() => alertMsg(err)); return; } setTimeout(() => dialog('Aplicado', `<p>Listo: ${esc(MAPS[cur.from].name)} queda así en tu partida. Se ve al cerrar el editor (y cada vez que abras el juego).</p>`, [['Cerrar el editor', () => { close(); try { applyOverride(cur.from, gameOv()[cur.from]); if (typeof curMap !== 'undefined' && curMap === cur.from) { useMap(curMap); if (P && P.pos && blocked[P.pos.y] && blocked[P.pos.y][P.pos.x]) { for (let r = 1; r < 6; r++) { const c = [[r,0],[-r,0],[0,r],[0,-r]].find(([dx,dy]) => blocked[P.pos.y+dy] && blocked[P.pos.y+dy][P.pos.x+dx] === false); if (c) { P.pos.x += c[0]; P.pos.y += c[1]; break; } } } } } catch (e) {} }, true], ['Seguir editando', () => {}]])); }], ['↩️ Volver al original', () => { const o = gameOv(); if (!o[cur.from]) { setTimeout(() => alertMsg('Este mapa no tiene cambios aplicados.')); return; } delete o[cur.from]; putOv(o); setTimeout(() => dialog('Original', '<p>Listo. El mapa vuelve a como era la próxima vez que abras el juego.</p>', [['Recargar ahora', () => { location.reload(); }, true], ['Después', () => {}]])); }]] : []),
+       ['Cerrar', () => {}]]);
     for (const b of root.querySelectorAll('#ed-tools [data-t]')) b.onclick = () => { tool = b.dataset.t; syncTools(); };
     syncTools();
   }
@@ -11329,7 +11371,66 @@ const ED = (() => {
   }
   // los edificios del editor no tienen adentro todavía: muestran su nota
   { const _eb = enterBuilding; enterBuilding = function (id) { if (String(id).startsWith('ed_b')) { const b = buildings.find(x => x.id === id); return say([b ? b.name : 'Edificio', b && b.note ? `Nota: ${b.note}` : 'Todavía no tiene adentro.']); } return _eb.apply(this, arguments); }; }
-  return { open, edit, all, close, fromGame, parseMap, exportMap, testWalk, backToEditor, get cur() { return cur; }, view: () => ({ zoom, panX, panY }) };
+
+  // ---- v0.81: modificar el mapa del juego (no solo crear nuevos) ----
+  // "Aplicar al juego" guarda los cambios de terreno, árboles, decoración y muebles de una copia de un mapa del juego,
+  // y se aplican cada vez que abrís el juego. Spots, gente, carteles, edificios y salidas quedan como están (protegidos),
+  // así no se rompe ninguna mecánica. "Volver al original" borra los cambios de ese mapa.
+  const KEYG = 'lineaDirecta.mapasJuego';
+  const gameOv = () => { try { return JSON.parse(localStorage.getItem(KEYG) || '{}'); } catch (e) { return {}; } };
+  const putOv = o => { try { localStorage.setItem(KEYG, JSON.stringify(o)); return true; } catch (e) { return false; } };
+  const HARD = new Set([G.WATER, G.WALL]);
+  function applyOverride(id, ov) {
+    const M = MAPS[id]; if (!M || !ov || !ov.ground) return false;
+    const prot = new Set(), bfoot = new Set(), K = (x, y) => x + ',' + y;
+    for (const e of M.exits || []) prot.add(K(e.x, e.y));
+    for (const b of M.buildings || []) { if (b.door) prot.add(K(b.door[0], b.door[1])); for (let yy = b.y; yy < b.y + (b.h || 1); yy++) for (let xx = b.x; xx < b.x + (b.w || 1); xx++) bfoot.add(K(xx, yy)); }
+    for (const s of SPOTS) if ((s.map || 'barrio') === id && s.x != null) prot.add(K(s.x, s.y));
+    for (const n of M.npcs || []) prot.add(K(n.x, n.y));
+    for (const s of M.signs || []) prot.add(K(s.x, s.y));
+    const locked = (x, y) => prot.has(K(x, y)) || bfoot.has(K(x, y));
+    const touched = new Set();
+    // terreno
+    for (let y = 0; y < Math.min(M.MH, ov.ground.length); y++) for (let x = 0; x < M.MW; x++) {
+      const c = ov.ground[y][x], gv = GOF[c]; if (gv == null || gv === M.ground[y][x] || c === (CH[M.ground[y][x]] || 'g') || locked(x, y)) continue; // solo lo que pintaste: los terrenos que el editor no conoce no se tocan
+      M.ground[y][x] = gv; touched.add(K(x, y));
+    }
+    // árboles
+    const newT = (ov.trees || []).filter(([x, y]) => x >= 0 && y >= 0 && x < M.MW && y < M.MH && !locked(x, y));
+    for (const [x, y] of M.trees) touched.add(K(x, y));
+    M.trees.length = 0; M.trees.push(...newT); for (const [x, y] of newT) touched.add(K(x, y));
+    // decoración (lo que no es piso especial)
+    const keepD = M.decor.filter(d => d.kind === 'gfloor' || d.kind === 'mat' || d.kind === 'lamp' && (M.LAMPS || []).some(([x, y]) => x === d.x && y === d.y));
+    for (const d of M.decor) touched.add(K(d.x, d.y));
+    const newD = (ov.decor || []).filter(d => (!locked(d.x, d.y) || !SOLID_DECOR.has(d.kind)) && !(d.kind === 'lamp' && keepD.some(k => k.x === d.x && k.y === d.y)));
+    M.decor.length = 0; M.decor.push(...keepD, ...newD); for (const d of newD) touched.add(K(d.x, d.y));
+    // muebles: los que tienen una función (id) se pueden mover pero no borrar; los nuevos son decorativos
+    const byId = new Map((ov.props || []).filter(p => p.id).map(p => [p.id, p]));
+    for (const p of M.props) { if (p.kind === 'none') continue; const np = byId.get(p.id); if (np && !locked(np.x, np.y)) { touched.add(K(p.x, p.y)); p.x = np.x; p.y = np.y; touched.add(K(p.x, p.y)); } }
+    (ov.props || []).filter(p => !p.id).forEach((p, i) => { if (locked(p.x, p.y)) return; M.props.push({ id: 'edp_' + i, kind: p.kind, x: p.x, y: p.y }); touched.add(K(p.x, p.y)); });
+    // recalcular qué baldosas bloquean, solo donde hubo cambios
+    for (const k of touched) {
+      const [x, y] = k.split(',').map(Number); if (locked(x, y) || !M.blocked[y]) continue;
+      M.blocked[y][x] = HARD.has(M.ground[y][x]) || M.trees.some(t => t[0] === x && t[1] === y) || M.decor.some(d => d.x === x && d.y === y && (SOLID_DECOR.has(d.kind) || d.kind === 'lamp')) || M.props.some(p => p.x === x && p.y === y);
+    }
+    M.canvas = null; return true;
+  }
+  function applyToGame(m) {
+    if (!m || !m.from || !MAPS[m.from]) return 'Este mapa no salió del juego: solo se puede probar y exportar.';
+    if (m.w !== MAPS[m.from].MW || m.h !== MAPS[m.from].MH) return 'Cambiaste el tamaño del mapa: así no se puede aplicar al juego (se exporta para Claude).';
+    const o = asGame(m), ov = { ground: m.ground, trees: o.trees, decor: o.decor.filter(d => d.kind !== 'gfloor'), props: m.objs.filter(x => x.t === 'prop').map(x => ({ kind: x.k, x: x.x, y: x.y, id: x.note && MAPS[m.from].props.some(p => p.id === x.note) ? x.note : null })), name: m.name, updated: Date.now() };
+    const all = gameOv(); all[m.from] = ov; if (!putOv(all)) return 'No hay lugar en el teléfono para guardar el cambio.';
+    return '';
+  }
+  for (const [id, ov] of Object.entries(gameOv())) { try { applyOverride(id, ov); } catch (e) {} }
+  function editHere() {
+    const id = typeof curMap !== 'undefined' && MAPS[curMap] ? curMap : null; if (!id || id.startsWith('__')) return;
+    const a = all(); let m = a.find(x => x.from === id && x.live);
+    if (!m) { m = fromGame(id); m.live = true; m.name = `${MAPS[id].name} (en el juego)`; a.push(m); putAll(a); }
+    open(); edit(m.id);
+    dialog('Editar el mapa donde estás', '<p>Cambiás el terreno, los árboles, la decoración y los muebles. Los spots, la gente, los carteles, los edificios y las salidas quedan como están, para que no se rompa nada.</p><p>Cuando termines: <b>⋯ → Aplicar al juego</b>. Para deshacer: <b>⋯ → Volver al original</b>.</p>', [['Entendido', () => {}, true]]);
+  }
+  return { open, edit, all, close, fromGame, parseMap, exportMap, testWalk, backToEditor, editHere, applyToGame, gameOv, get cur() { return cur; }, view: () => ({ zoom, panX, panY }) };
 })();
 
 // ================= CELULAR ACOSTADO (v0.66): pantalla completa, joystick invisible y diagonales =================
