@@ -11,3 +11,11 @@ Este repo tiene solo el juego compilado. El código está en un repo privado.
 ## Créditos de gráficos
 - Kenney (www.kenney.nl): Tiny Town, RPG Urban Pack, Roguelike Indoor, Roguelike Modern City y Pixel UI. CC0.
 - LimeZu (limezu.itch.io): "Modern Interiors" versión gratis, uso no comercial, y "Serene Village revamped", CC BY 4.0.
+
+## Palazo Real (otro juego, en la carpeta `palazo/`)
+
+Shooter realista con campaña y escuadra. **Jugar:** https://vagizzes-nometa.github.io/linea-directa-alpha/palazo/
+
+En iPhone: abrilo en Safari con internet → Compartir → "Agregar a pantalla de inicio". Después abre sin conexión.
+
+Créditos: modelo de soldado y texturas de los ejemplos de three.js (licencia MIT), armas de Palazo.
