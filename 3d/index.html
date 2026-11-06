@@ -1,0 +1,29 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="LD 3D">
+<meta name="theme-color" content="#0f141c"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><title>Línea Directa 3D</title>
+<style>
+:root { --ink: #0f141c; --panel: #18202c; --line: rgba(232,236,241,.14); --text: #eef1f4; --muted: #a8b2bd; --accent: #f08a24; color-scheme: dark; }
+body { margin: 0; min-height: 100vh; background: var(--ink); color: var(--text); font: 16px/1.45 'Barlow', system-ui, sans-serif; display: grid; align-content: center; gap: 18px; padding: calc(24px + env(safe-area-inset-top,0px)) max(20px, env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px, env(safe-area-inset-left,0px)); box-sizing: border-box; }
+h1 { margin: 0; font: 800 40px/1 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif; text-transform: uppercase; letter-spacing: .03em; }
+p { margin: 0; color: var(--muted); max-width: 46ch; }
+.list { display: grid; gap: 12px; max-width: 520px; }
+a.card { display: grid; gap: 4px; padding: 16px 18px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
+a.card b { font: 800 24px/1 'Barlow Condensed', system-ui, sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); }
+a.card span { color: var(--muted); font-size: 15px; }
+#st { font-size: 14px; }
+</style>
+</head><body>
+<h1>Línea Directa 3D</h1>
+<p>Pruebas del 3D realista. Abrilas una vez con internet y después andan sin conexión.</p>
+<div class="list">
+  <a class="card" href="pista.html"><b>La pista</b><span>Corrés libre por una pista de módulos y despegás con A en la franja verde.</span></a>
+  <a class="card" href="plaza.html"><b>La plaza</b><span>Caminás por la plaza del barrio y probás la precisión a la baranda de la fuente.</span></a>
+</div>
+<p id="st"></p>
+<script>
+const st = document.getElementById('st');
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); return navigator.serviceWorker.ready; }).then(() => caches.keys()).then(k => { st.textContent = k.some(x => x.startsWith('ld3d-')) ? 'Lista para usar sin conexión (versión 0fb6bc35e2).' : 'Guardando para usar sin conexión…'; }).catch(() => {});
+} else st.textContent = 'Para usarla sin conexión, abrila desde el sitio publicado.';
+</script>
+</body></html>

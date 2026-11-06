@@ -1,0 +1,76 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="LD 3D">
+<meta name="theme-color" content="#0f141c"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Línea Directa 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;600&display=swap">
+<style>
+/* Juego en pantalla completa: la escena 3D ocupa todo, la interfaz flota en los bordes como en un videojuego (una sola estética oscura, a propósito) */
+:root {
+  --ink: #0f141c; --panel: rgba(15, 20, 28, .82); --line: rgba(232, 236, 241, .16);
+  --text: #eef1f4; --muted: #a8b2bd; --accent: #f08a24; --go: #3fae6a; --warn: #e0b73a; --stop: #c94a3a;
+  --display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif; --body: 'Barlow', system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body.debug .top, body.debug #btnA, body.debug #joy, body.debug #look { display: none; }
+body { margin: 0; background: var(--ink); color: var(--text); font: 15px/1.4 var(--body); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#app, #app canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; font: 800 28px var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--ink); z-index: 30; }
+#joy { position: fixed; left: 0; top: 0; bottom: 0; width: 45%; z-index: 5; touch-action: none; }
+#look { position: fixed; right: 0; top: 0; bottom: 0; width: 55%; z-index: 4; touch-action: none; }
+#joy .base, #knob { position: fixed; display: none; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+#joy .base { width: 120px; height: 120px; border: 2px solid rgba(238, 241, 244, .35); background: rgba(238, 241, 244, .07); }
+#knob { width: 52px; height: 52px; background: rgba(238, 241, 244, .45); z-index: 6; }
+.top { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; z-index: 10; pointer-events: none; }
+.brand { font: 800 22px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+.brand small { display: block; font: 600 12px var(--body); letter-spacing: .02em; text-transform: none; color: var(--muted); margin-top: 4px; }
+#fps { font: 600 12px var(--body); color: var(--muted); text-shadow: 0 1px 4px #000; font-variant-numeric: tabular-nums; }
+#btnCfg { pointer-events: auto; }
+button { font: 800 16px var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.on { background: var(--accent); color: var(--ink); border-color: transparent; }
+#btnA { position: fixed; right: max(20px, calc(14px + env(safe-area-inset-right, 0px))); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 78px; height: 78px; border-radius: 50%; font-size: 30px; background: var(--accent); color: var(--ink); border: 0; z-index: 12; box-shadow: 0 6px 20px rgba(0, 0, 0, .45); }
+#hint { position: fixed; left: 50%; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 11; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font: 600 15px var(--body); white-space: nowrap; max-width: calc(100% - 160px); overflow: hidden; text-overflow: ellipsis; }
+#cfg { position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; max-width: 280px; }
+#cfg h3 { margin: 0; font: 800 14px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#cfg .row { display: flex; gap: 6px; flex-wrap: wrap; }
+#cfg button { font-size: 14px; padding: 8px 10px; }
+#cfg p { margin: 0; font-size: 13px; color: var(--muted); }
+#spot { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(460px, calc(100% - 140px)); z-index: 15; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; backdrop-filter: blur(6px); }
+#spot h2 { margin: 0; font: 800 26px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; text-wrap: balance; }
+#spot .sub { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+#spot .bars { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font: 800 13px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); position: relative; }
+#spot .bars::after { content: ''; grid-column: 2; grid-row: 1; height: 8px; border-radius: 4px; background: rgba(238, 241, 244, .12); }
+#spot .bars i { grid-column: 2; grid-row: 1; height: 8px; border-radius: 4px; background: var(--accent); z-index: 1; max-width: 100%; }
+#spot .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+#bar { position: fixed; left: 50%; top: calc(70px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(560px, calc(100% - 48px)); z-index: 15; display: grid; gap: 8px; text-align: center; }
+#bar-track { position: relative; height: 30px; border-radius: 8px; overflow: hidden; border: 2px solid rgba(15, 20, 28, .9); box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+#bar-zones { position: absolute; inset: 0; }
+#bar-needle { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; background: var(--text); box-shadow: 0 0 0 2px var(--ink); }
+#bar-info { font: 800 18px var(--display); letter-spacing: .05em; text-transform: uppercase; text-shadow: 0 2px 6px #000; }
+#toast { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 25; font: 800 30px var(--display); text-transform: uppercase; letter-spacing: .04em; padding: 10px 22px; border-radius: 12px; background: var(--panel); text-align: center; max-width: calc(100% - 32px); }
+#toast.ok { color: var(--go); } #toast.bad { color: var(--stop); }
+@media (max-width: 560px) { #spot { width: calc(100% - 32px); bottom: calc(112px + env(safe-area-inset-bottom, 0px)); } #hint { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 32px); } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head><body><div id="app"></div>
+<div id="loading">Cargando la plaza…</div>
+<div id="joy"><div class="base"></div></div><div id="knob"></div>
+<div id="look"></div>
+<div class="top"><div class="brand">Línea Directa 3D<small>Prueba · la plaza del barrio</small></div><div style="display:grid;gap:6px;justify-items:end"><button id="btnCfg">Ajustes</button><span id="fps"></span></div></div>
+<div id="cfg" hidden>
+  <h3>Calidad</h3><div class="row"><button data-q="bajo">Baja</button><button data-q="medio">Media</button><button data-q="alto">Alta</button></div>
+  <h3>Atleta</h3><div class="row"><button data-m="soldier">Persona</button><button data-m="xbot">Maniquí</button></div>
+  <p>Caminás con el dedo a la izquierda, girás la cámara arrastrando a la derecha. En la compu: WASD o flechas, Shift corre, E o espacio es A.</p>
+</div>
+<div id="hint" hidden></div>
+<div id="spot" hidden><div id="spot-body"></div><div class="acts"><button id="b-medir">Medir</button><button id="b-intentar" class="on">Intentar</button><button id="b-irse">Irse</button></div></div>
+<div id="bar" hidden><div id="bar-track"><div id="bar-zones"></div><div id="bar-needle"></div></div><div id="bar-info"></div></div>
+<div id="toast" hidden></div>
+<button id="btnA" aria-label="Botón A">A</button>
+<script src="assets.js"></script>
+<script src="plaza.js"></script>
+<a href="./" style="position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;font:800 14px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#eef1f4;background:rgba(15,20,28,.82);border:1px solid rgba(232,236,241,.16);border-radius:10px;padding:8px 12px;text-decoration:none">‹ Menú</a><script>if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});</script></body></html>
