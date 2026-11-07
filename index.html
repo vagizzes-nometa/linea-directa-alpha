@@ -4583,9 +4583,9 @@ function enterBuilding(id) {
   if (id === 'gym') { if (P.slot >= 2) return say(['El gimnasio está cerrado. Abre mañana a la mañana.']); return enterGym(); }
   if (id === 'kiosco') { enterInterior('kioscoint'); return say(tutorial('kiosco', ['Tito: ¡Buenas! Pedime en el mostrador. Y la heladera de bebidas está al fondo.'])); }
   if (id === 'kine') { if (P.slot >= 2) return say(['El consultorio de kinesiología cerró. Atiende mañana y tarde.']); enterInterior('kinesio'); if (P.nutriCall) return nutriConsult(!P.nutriMet); return say(tutorial('kinesio', ['La salita de salud del barrio. Nacho, el kine, atiende en la camilla; la Dra. Herrera es la médica de la guardia. En el bosu de la esquina se hacen los ejercicios de prevención.'])); }
-  if (id === 'estacion' || id === 'estacion2' || id === 'estacion3' || id === 'estacion4') { enterInterior('andenint'); return say(tutorial('anden', ['La estación. Boletería al frente, la cartelera de anuncios a la izquierda.'])); }
+  if (id.startsWith('estacion')) { enterInterior('andenint'); return say(tutorial('anden', ['La estación. Boletería al frente, la cartelera de anuncios a la izquierda.'])); }
   if (id === 'hostel' || id === 'hostel2' || id === 'hostel3') return openHostel();
-  if (id === 'camping') { if (P.slot >= 2) return say(['El camping cerró. Abre a la mañana.']); return openCamping(); }
+  if (id === 'camping') return openCamping(); // v0.82: la recepción atiende de noche (para dormir en la cabaña o la parcela)
   if (id === 'casapato') return hostDoor('pato');
   if (id === 'casamara') return hostDoor('mara');
   if (id === 'casabeto') return hostDoor('beto');
@@ -4967,19 +4967,20 @@ function openFood(where) {
   const meal = mealOf(P.min ?? 480), list = where === 'casa' ? FOODS.casa.filter(f => f.when.includes(meal)) : FOODS[where];
   if (!P.meals || P.meals.day !== P.day) P.meals = { day: P.day };
   const mealDone = where === 'casa' && P.meals[meal];
-  $('#place-title').textContent = where === 'casa' ? `Cocina · ${meal[0].toUpperCase() + meal.slice(1)}` : where === 'chori' ? 'Puesto de choris' : 'Kiosco 24 h';
+  $('#place-title').textContent = where === 'casa' ? `Cocina · ${meal[0].toUpperCase() + meal.slice(1)}` : where === 'chori' ? 'Puesto de choris' : where === 'club' ? 'Buffet del club' : 'Kiosco 24 h';
   $('#place-sub').textContent = `Día ${P.day}, ${clockTxt()} · tenés ${priceTxt(P.money)} · fatiga ${Math.round(P.fatiga)} · carga digestiva ${heavyDots(P.heavy || 0)}`;
   const full = (P.digest || 0) >= 3;
   const body = $('#place-body'); body.innerHTML = '';
-  { const rf = where === 'casa' ? bottleRefill('en la canilla de tu casa') : where === 'kiosco' ? bottleRefill('(Tito te la llena gratis)') : null; if (rf) body.appendChild(el('p', 'event', rf)); }
+  { const rf = where === 'casa' ? bottleRefill('en la canilla de tu casa') : where === 'kiosco' ? bottleRefill('(Tito te la llena gratis)') : where === 'club' ? bottleRefill('en el buffet del club') : null; if (rf) body.appendChild(el('p', 'event', rf)); }
   body.appendChild(el('p', 'note', `Energía ${Math.round(P.energia ?? 60)}/100. Comer carga energía, no saca fatiga. ${where === 'casa' ? (P.nutriMet ? `Acá la porción la calcula el plan de la nutri (${PLAN_NAME[P.plan || 'mantener']}).` : 'Acá tu vieja te sirve una porción normal.') : 'Lo que pasa de 100 te deja pesado y suma peso.'}`));
   const grid = el('div', 'sessions');
   for (const f of list) {
     const pr = foodPrice(f), fp = where === 'casa' ? planPortion(f) : f;
     const b = el('button', 'session food', `${foodImg(f.id, 32)}<b>${f.name}</b><span>${f.sub}</span><em>${f.agua ? '−3 fatiga' : f.cafe ? '−6 fatiga' : '+' + fp.carb + ' energía' + (where === 'casa' ? (P.nutriMet ? ' (porción del plan)' : ' (porción de casa)') : '')}${!f.cafe && !f.agua && where !== 'casa' && (P.energia ?? 60) + f.carb > 100 ? ` · te sobran ${Math.round((P.energia ?? 60) + f.carb - 100)}` : ''} · ${f.heavy >= 0.5 ? 'pesado ' + heavyDots(f.heavy) : 'liviano'}${f.antojo ? ' · 😊 +1' : ''}</em><em class="price">${pr ? priceTxt(pr) : 'gratis'}</em>`);
-    b.disabled = (full && f.heavy > 0 && !f.bag) || !canPay(pr) || mealDone;
-    b.onclick = () => f.bag && where !== 'casa' ? buyBagChoice(f, where) : eatFood(f, where);
-    if (f.bag && where !== 'casa') b.querySelector('b').insertAdjacentHTML('beforeend', ' 📥');
+    const canBag = where !== 'casa'; // v0.82 (nota de Vago): todo lo que se compra se puede guardar
+    b.disabled = (full && f.heavy > 0 && !canBag) || !canPay(pr) || mealDone;
+    b.onclick = () => canBag ? buyBagChoice(f, where) : eatFood(f, where);
+    if (canBag) b.querySelector('b').insertAdjacentHTML('beforeend', ' 📥');
     grid.appendChild(b);
   }
   body.appendChild(grid);
@@ -4997,7 +4998,7 @@ function foodById(id) { for (const l of Object.values(FOODS)) { const f = l.find
 function buyBagChoice(f, where) {
   const pr = foodPrice(f), bag = P.bag || [];
   ask(f.name, [`${priceTxt(pr)} · 🎒 ${bag.length}/${bagMax()}`], [
-    { label: 'Usar ahora', primary: true, fn: () => eatFood(f, where) },
+    { label: 'Usar ahora', primary: true, fn: () => ((P.digest || 0) >= 3 && f.heavy > 0) ? say(['Estás lleno para comerlo ahora. Guardalo para después.']) : eatFood(f, where) },
     { label: bag.length >= bagMax() ? 'Mochila llena' : 'Guardar en la mochila', fn: () => { if ((P.bag || []).length >= bagMax() || !canPay(pr)) return say(['No entra más nada en la mochila.']); money(-pr); P.bag = [...(P.bag || []), f.id]; spend(5); save(); SND.play('coin'); openFood(where); } },
     { label: 'Nada', fn: () => {} }]);
 }
@@ -5818,8 +5819,17 @@ function comboGo(isFinal) {
   if (m < 0.08 && R() < P.miedo / 100 * 0.6) { m -= 0.03; lines.push('Dudás un instante.'); }
   P.fatiga = clamp(P.fatiga + (isFinal ? 7 : 5), 0, 100);
   digestPenalty(lines); if (energyDip(lines)) m -= 0.03;
+  // v0.82 (nota de Vago): cada paso de la línea se juega con la barra, como un spot (antes era solo decidir)
+  if (!MINI.isOff()) { battle.anim = true; renderBattle();
+    return MINI.play('timing', { p: pSuccess(m), fear: P.miedo, kind: st.kind, title: `🔗 ${c.name} · ${isFinal ? c.final.name : SKILLS[st.skill].name}` }, r => { show('battle'); battle.anim = false;
+      if (r.abort) { P.fatiga = clamp(P.fatiga - (isFinal ? 4 : 3), 0, 100); battle.log.push('Frenás antes de despegar.'); return comboStop(isFinal); }
+      if (r.barTxt) lines.push(r.barTxt);
+      comboResolve(c, i, st, isFinal, m, lines, r.hit); }); }
+  comboResolve(c, i, st, isFinal, m, lines, R() < pSuccess(m));
+}
+function comboResolve(c, i, st, isFinal, m, lines, hit) {
   let result = 'ok';
-  if (R() < pSuccess(m)) { addPulido(P, st.skill, 3); lines.unshift(isFinal ? '¡Lo clavaste!' : `${SKILLS[st.skill].name}: sale y seguís.`); }
+  if (hit) { addPulido(P, st.skill, 3); lines.unshift(isFinal ? '¡Lo clavaste!' : `${SKILLS[st.skill].name}: sale y seguís.`); }
   else {
     const injP = clamp((0.05 + Math.max(0, -m) * 0.8 + (P.fatiga > 60 ? 0.08 : 0)) * fatEffects(P).inj, 0, 0.5);
     if (R() < injP) { result = 'lesion'; const nm = injure(P, 2 + Math.floor(R() * 4), R); P.miedo = clamp(P.miedo + 12, 0, 100); lines.unshift(`Caída fea en el ${isFinal ? 'salto final' : SKILLS[st.skill].name.toLowerCase()}: ${nm}, ${P.lesion} días.`); }
@@ -6101,7 +6111,7 @@ function openMenu(tab) {
   }
   if (tab === 'mochila') {
     const bag = P.bag || [];
-    box.innerHTML = `<h3 class="sect">🎒 Mochila · ${bag.length}/${bagMax()}</h3><div class="sessions" id="bag-slots"></div><h3 class="sect">Siempre con vos</h3><div class="sessions" id="bag-fixed"></div><p class="note">En el kiosco, lo que tiene 📥 lo podés guardar. En la competencia solo podés usar lo que traigas acá (el agua del bebedero es gratis).</p>`;
+    box.innerHTML = `<h3 class="sect">🎒 Mochila · ${bag.length}/${bagMax()}</h3><div class="sessions" id="bag-slots"></div><h3 class="sect">Siempre con vos</h3><div class="sessions" id="bag-fixed"></div><p class="note">Todo lo que comprás afuera (📥) lo podés guardar. En la competencia solo podés usar lo que traigas acá (el agua del bebedero es gratis).</p>`;
     for (let i = 0; i < bagMax(); i++) {
       const id = bag[i], f = id && foodById(id);
       const b = el('button', 'session food', f ? `${foodImg(f.id, 32)}<b>${f.name}</b><span>${f.sub}</span><em>Usar ahora</em>` : '<b>—</b><span>Lugar libre</span>');
@@ -10955,10 +10965,63 @@ const SPOTS2 = [
 ];
 for (const s of SPOTS2) { const M = MAPS[s.map]; if (!M || !M.blocked[s.y] || M.blocked[s.y][s.x]) continue; SPOTS.push(s); M.blocked[s.y][s.x] = true; M.canvas = null; }
 
+// ================= ARREGLOS v0.82 (notas de Vago) =================
+// 1) El mostrador era siempre el kiosco de Tito: en el camping, las camas o el club te atendía el kiosquero.
+//    Ahora el mostrador te atiende quien está detrás (la encargada, Arturo, el buffet del club...). El de Tito sigue igual.
+{ const _mo = HOME_ACT.mostrador;
+  HOME_ACT.mostrador = function () {
+    if (curMap === 'kioscoint') return _mo.apply(this, arguments);
+    if (curMap === 'clubint') return openClub();
+    const M = MAPS[curMap], who = (M && M.npcs || []).find(n => typeof n.act === 'function');
+    if (who) return who.act();
+    return _mo.apply(this, arguments);
+  };
+}
+// 2) Club Los Álamos: buffet propio (comida de deportista) y venta de cosas para entrenar
+FOODS.club = [
+  FOODS.kiosco.find(f => f.id === 'agua'), FOODS.kiosco.find(f => f.id === 'banana'), FOODS.kiosco.find(f => f.id === 'iso'),
+  { id: 'barrita', price: 2, name: 'Barrita de cereal', sub: 'Liviana, para el bolsillo', carb: 14, energia: 5, heavy: 0, grasa: 0, motiv: 0 },
+  { id: 'licuado', price: 4, name: 'Licuado de banana', sub: 'Energía rápida que no pesa', carb: 22, energia: 8, heavy: 0.5, grasa: 0.01, motiv: 2 },
+  { id: 'ensalada', price: 5, name: 'Ensalada de arroz y huevo', sub: 'Energía media, liviana', carb: 30, energia: 11, heavy: 0.3, grasa: 0.01, motiv: 1 },
+  { id: 'sanpollo', price: 6, name: 'Sánguche de pollo', sub: 'Rinde y no te tira abajo', carb: 30, energia: 12, heavy: 1, grasa: 0.02, motiv: 2 },
+  { id: 'fideospollo', price: 7, name: 'Fideos con pollo', sub: 'El plato de los que entrenan', carb: 42, energia: 15, heavy: 0.5, grasa: 0.01, motiv: 2 }
+];
+const FOOD_ALIAS = { barrita: 'datiles', licuado: 'banana', ensalada: 'vianda', sanpollo: 'tostado', fideospollo: 'pasta' };
+{ const _fi = foodImg; foodImg = function (id, size) { return _fi(FOOD_ALIAS[id] || id, size); }; }
+const CLUB_SALE = ['roller', 'bandas'];
+function openClub() {
+  const body = placeShell('Club Los Álamos', `Tenés ${priceTxt(P.money)}. Bochas a la tarde, fútbol los domingos y un buffet que conoce a los que entrenan.`);
+  body.appendChild(el('p', '', 'Buffet: Acá no hay hamburguesa doble. Comida para el que entrena, y lo que te sobra lo llevás en la mochila.'));
+  const fb = el('button', 'btn primary', '🍽️ Ver el buffet'); fb.onclick = () => openFood('club'); body.appendChild(fb);
+  body.appendChild(el('h3', 'sect', 'Venta del club'));
+  let any = false;
+  for (const it of CLUB_SALE) { if ((P.items || {})[it]) continue; any = true; const I = ITEMS[it];
+    const b = el('button', 'btn', `${I.name} · ${priceTxt(I.price)}`); b.disabled = !canPay(I.price);
+    b.onclick = () => { money(-I.price); P.items = Object.assign(P.items || {}, { [it]: true }); save(); backToWorld([...I.intro.map(l => l.replace(/^Nacho:/, 'Buffet:')), `🎒 ${I.name}: lo encontrás en el menú, en la Mochila.`]); };
+    body.appendChild(b); }
+  if (!(P.items || {}).mochila) { any = true; const I = CAMP_ITEMS.mochila, b = el('button', 'btn', `${I.name} · ${priceTxt(I.price)}`); b.title = I.desc; b.disabled = !canPay(I.price);
+    b.onclick = () => { money(-I.price); P.items = Object.assign(P.items || {}, { mochila: true }); save(); backToWorld([`🎒 ${I.name}: ${I.desc}`]); }; body.appendChild(b); }
+  if (!any) body.appendChild(el('p', 'note', 'Ya tenés todo lo que vende el club.'));
+}
+{ const ci = MAPS.clubint; const bu = ci && ci.npcs.find(n => n.id === 'buffet'); if (bu) bu.act = () => openClub(); }
+
+// 3) Los Álamos no tenía estación: el tren pasaba de largo. Ahora para ahí (a una ruta de tu barrio).
+(function () {
+  const M = MAPS.alamos; if (!M || M.buildings.some(b => b.id === 'estacion5')) return;
+  const b = { id: 'estacion5', name: 'Estación Los Álamos', x: 6, y: 26, w: 6, h: 3, door: [8, 28], roof: '#7a5b8f', roofD: '#5a4170', wall: '#e6dccb', sign: 'ESTACIÓN' };
+  M.buildings.push(b); for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) M.blocked[y][x] = true;
+  M.decor = M.decor.filter(d => !(d.x >= b.x && d.x < b.x + b.w && d.y >= b.y && d.y < b.y + b.h + 1));
+  M.trees = M.trees.filter(([x, y]) => !(x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h + 1));
+  M.canvas = null;
+  if (!TRAIN_LINE.some(([t]) => t === 'alamos')) TRAIN_LINE.splice(1, 0, ['alamos', 1]);
+  TRAIN_STOPS.alamos = { name: 'Los Álamos', x: 8, y: 29 };
+  if (typeof curMap !== 'undefined' && curMap === 'alamos') useMap(curMap);
+})();
+
 // ================= ALPHA (v0.65): notas de prueba, partida y exportar todo =================
 // Pensado para probar el juego en el celular durante un viaje: anotás lo que ves (con día, mapa y lugar automáticos),
 // y al volver exportás todo junto (notas + mapas del editor + resumen de la partida) en un solo texto para Claude.
-const ALPHA_V = '0.81 Alpha';
+const ALPHA_V = '0.82 Alpha';
 const AL = (() => {
   const KN = 'lineaDirecta.notas';
   const css = `
