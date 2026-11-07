@@ -24,7 +24,7 @@ a.card span { color: var(--muted); font-size: 15px; }
 <script>
 const st = document.getElementById('st');
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); return navigator.serviceWorker.ready; }).then(() => caches.keys()).then(k => { st.textContent = k.some(x => x.startsWith('ld3d-')) ? 'Lista para usar sin conexión (versión 5124f3364a).' : 'Guardando para usar sin conexión…'; }).catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); return navigator.serviceWorker.ready; }).then(() => caches.keys()).then(k => { st.textContent = k.some(x => x.startsWith('ld3d-')) ? 'Lista para usar sin conexión (versión ed90aa29b6).' : 'Guardando para usar sin conexión…'; }).catch(() => {});
 } else st.textContent = 'Para usarla sin conexión, abrila desde el sitio publicado.';
 </script>
 </body></html>
