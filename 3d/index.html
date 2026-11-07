@@ -16,7 +16,7 @@ a.card span { color: var(--muted); font-size: 15px; }
 <h1>Línea Directa 3D</h1>
 <p>Pruebas del 3D realista. Abrilas una vez con internet y después andan sin conexión.</p>
 <div class="list">
-  <a class="card" href="parque.html"><b>El parque</b><span>Nuevo: 7 elementos y varias técnicas por elemento. Arrastrás el dedo derecho para elegir y soltás para saltar.</span></a>
+  <a class="card" href="parque.html"><b>El parque</b><span>7 elementos y varias técnicas por elemento. Lo que dominás sale solo; lo nuevo lo medís en el corredor. Ojo con la energía y la fatiga.</span></a>
   <a class="card" href="pista.html"><b>La pista</b><span>Corrés libre por una pista de módulos y despegás con A en la franja verde.</span></a>
   <a class="card" href="plaza.html"><b>La plaza</b><span>Caminás por la plaza del barrio y probás la precisión a la baranda de la fuente.</span></a>
 </div>
@@ -24,7 +24,7 @@ a.card span { color: var(--muted); font-size: 15px; }
 <script>
 const st = document.getElementById('st');
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); return navigator.serviceWorker.ready; }).then(() => caches.keys()).then(k => { st.textContent = k.some(x => x.startsWith('ld3d-')) ? 'Lista para usar sin conexión (versión c20fb09bfb).' : 'Guardando para usar sin conexión…'; }).catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); return navigator.serviceWorker.ready; }).then(() => caches.keys()).then(k => { st.textContent = k.some(x => x.startsWith('ld3d-')) ? 'Lista para usar sin conexión (versión 5124f3364a).' : 'Guardando para usar sin conexión…'; }).catch(() => {});
 } else st.textContent = 'Para usarla sin conexión, abrila desde el sitio publicado.';
 </script>
 </body></html>

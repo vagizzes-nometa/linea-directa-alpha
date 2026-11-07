@@ -66,11 +66,17 @@ button.on { background: var(--accent); color: var(--ink); border-color: transpar
 #btnR { position: fixed; right: max(110px, calc(104px + env(safe-area-inset-right, 0px))); bottom: calc(36px + env(safe-area-inset-bottom, 0px)); z-index: 12; }
 #joy { width: 50%; }
 #tech { position: fixed; right: 0; top: 0; bottom: 0; width: 50%; z-index: 5; touch-action: none; }
-#radial { position: fixed; right: max(18px, calc(12px + env(safe-area-inset-right, 0px))); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 230px; height: 176px; z-index: 12; pointer-events: none; }
-#radial .slot { position: absolute; display: grid; justify-items: center; gap: 1px; min-width: 76px; max-width: 108px; padding: 6px 8px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); text-align: center; transition: transform .08s, background .08s; }
+#radial { position: fixed; right: max(18px, calc(12px + env(safe-area-inset-right, 0px))); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 250px; height: 184px; z-index: 12; pointer-events: none; }
+#radial .slot { position: absolute; display: grid; justify-items: center; gap: 1px; min-width: 76px; max-width: 100px; padding: 6px 8px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); text-align: center; transition: transform .08s, background .08s; }
 #radial .slot b { font: 800 16px/1 var(--display); color: var(--muted); }
 #radial .slot span { font: 800 14px/1.05 var(--display); letter-spacing: .03em; text-transform: uppercase; }
 #radial .slot.empty span { color: var(--muted); opacity: .6; }
+#radial .slot small { font: 600 10px/1 var(--body); color: var(--muted); letter-spacing: .02em; }
+#radial .slot.rmid { background: rgba(120, 80, 10, .88); border-color: #f0b43a; }
+#radial .slot.rhigh { background: rgba(120, 25, 18, .9); border-color: #e0503a; }
+#radial .slot.rmid small, #radial .slot.rhigh small { color: #ffd9a8; }
+#radial .slot.on small { color: var(--ink); }
+#stats .warn, #stats .warn b { color: #ff9a7a; }
 #radial .slot.on { background: var(--accent); color: var(--ink); border-color: transparent; transform: scale(1.08); }
 #radial .slot.on b { color: var(--ink); }
 #radial [data-d="up"] { left: 50%; top: 0; transform: translateX(-50%); } #radial [data-d="up"].on { transform: translateX(-50%) scale(1.08); }
@@ -100,23 +106,23 @@ body.keys .k { font: 600 11px var(--body); color: var(--muted); }
 </head><body><div id="app"></div>
 <div id="loading">Armando la pista…</div>
 <div id="joy"><div class="base"></div></div><div id="knob"></div><div id="tech"></div>
-<div class="top"><div class="brand">Línea Directa · Parque<small>Prueba de técnicas por elemento</small></div><div id="hud"><span id="time">Sin línea</span><div id="stats"></div><div class="toprow"><button id="btnTec">Técnicas</button><button id="btnCfg">Ajustes</button></div><span id="fps"></span></div></div>
+<div class="top"><div class="brand">Línea Directa · Parque<small>Lo dominado sale solo · lo nuevo se mide</small></div><div id="hud"><span id="time">Sin línea</span><div id="stats"></div><div class="toprow"><button id="btnTec">Técnicas</button><button id="btnCfg">Ajustes</button></div><span id="fps"></span></div></div>
 <div id="cfg" hidden>
   <h3>Calidad</h3><div class="row"><button data-q="bajo">Baja</button><button data-q="medio">Media</button><button data-q="alto">Alta</button></div>
   <h3>Dificultad</h3><div class="row"><button data-diff="amateur">Amateur</button><button data-diff="pro">Pro</button></div>
-  <p>Amateur: 3 s de cámara lenta al llegar a cada elemento y franja más ancha. Pro: a velocidad real y franja más angosta.</p>
+  <p>Amateur: 3 s de cámara lenta al llegar a algo que estás aprendiendo y franjas más anchas. Pro: a velocidad real y franjas más angostas.</p>
   <h3>Atleta</h3><div class="row"><button data-m="soldier">Persona</button><button data-m="xbot">Maniquí</button></div>
-  <p>Dedo izquierdo: correr. Dedo derecho: arrastrá hacia la técnica y soltá sobre la franja verde (un toque es ↑). En la compu: WASD para correr; mantené I J K L (o 1 2 3 4) para elegir y soltá para saltar; espacio salta con ↑; R vuelve al inicio.</p>
+  <p>Dedo izquierdo: correr (encarar derecho un elemento te da envión). Dedo derecho: arrastrá hacia la técnica y mantené. Lo que dominás (auto) sale solo en el punto justo; soltar en el verde antes de tiempo es un despegue perfecto. Lo que estás aprendiendo (medir) despega al soltar, con el corredor de franjas. Si llegás sin elegir, te chocás. Con poca energía o mucha fatiga la técnica se pone ámbar o roja: puede no salir y lesionarte. En la compu: WASD; mantené I J K L (o 1 2 3 4) y soltá; R vuelve al inicio.</p>
 </div>
 <div id="next"></div>
 <div id="flash" hidden></div>
 <div id="tec" hidden><h2>Tus técnicas</h2><p>Para cada tipo de elemento elegís qué técnica va en cada dirección. Siempre en el mismo lugar, así se vuelve memoria muscular.</p><div id="tec-list"></div><div class="row"><button id="tec-reset">Volver a las de fábrica</button></div></div>
 <i id="slowbar" hidden></i>
 <div id="radial" hidden><div class="hub"></div>
-  <div class="slot" data-d="up"><b>↑ <em class="k">I</em></b><span></span></div>
-  <div class="slot" data-d="right"><b>→ <em class="k">L</em></b><span></span></div>
-  <div class="slot" data-d="down"><b>↓ <em class="k">K</em></b><span></span></div>
-  <div class="slot" data-d="left"><b>← <em class="k">J</em></b><span></span></div>
+  <div class="slot" data-d="up"><b>↑ <em class="k">I</em></b><span></span><small></small></div>
+  <div class="slot" data-d="right"><b>→ <em class="k">L</em></b><span></span><small></small></div>
+  <div class="slot" data-d="down"><b>↓ <em class="k">K</em></b><span></span><small></small></div>
+  <div class="slot" data-d="left"><b>← <em class="k">J</em></b><span></span><small></small></div>
 </div>
 <button id="btnR" hidden>Volver al inicio</button>
 <script src="assets.js"></script>
