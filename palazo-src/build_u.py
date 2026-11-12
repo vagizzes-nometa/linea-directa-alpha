@@ -29,7 +29,7 @@ gen_css='''
 #sswrap p{margin:0}
 '''
 home_add='''    <button class="big" id="go-ss" type="button"><b>Superslow</b><span>Diez misiones donde el tiempo solo avanza cuando te movés. En pantalla o en el visor VR.</span></button>
-    <button class="big" id="go-vr" type="button" hidden><b>Visor VR: apagado</b><span>Encendelo y la campaña, las operaciones, el juego en línea y los zombis se abren en el visor. Stick izq. camina · stick der. gira · gatillo dispara · A recarga · B cambia arma · X salta · grip izq. agacha · Y sale.</span></button>
+    <button class="big" id="go-vr" type="button" hidden><b>Visor VR: apagado</b><span>Encendelo y la campaña, las operaciones, el juego en línea y los zombis se abren en el visor. Como en Superslow: grip agarra, gatillo dispara, juntá las manos para pasar el arma. Fundas: espalda (armas largas), cintura derecha (pistola), cintura izquierda (pala), pecho (granadas). Arma larga con las dos manos: firme. A o X recarga · B salta · stick der. abajo agacha · Y sale.</span></button>
 '''
 anchor='    <button class="big" id="go-set" type="button">'
 assert head.count(anchor)==1

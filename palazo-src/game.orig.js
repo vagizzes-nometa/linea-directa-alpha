@@ -27162,16 +27162,16 @@ void main() {
       (i.add = (h) => (i.systems.push(h), h)));
     let a = performance.now();
     function c(h) {
-      if (i.sleep) return;
+      requestAnimationFrame(c);
       let l = Math.min(0.05, (h - a) / 1e3);
       if (((a = h), !i.paused)) {
         i.time += l;
         for (let u of i.systems) u.update && u.update(l, i.time);
       }
       for (let u of i.systems) u.always && u.always(l, i.time);
-      (i.updateShadow(), i.composer && !e.xr.isPresenting ? ((i.grade.uniforms.uT.value = i.time), (i.grade.uniforms.uHurt.value = i.hurt), i.composer.render()) : e.render(t, n));
+      (i.updateShadow(), i.composer ? ((i.grade.uniforms.uT.value = i.time), (i.grade.uniforms.uHurt.value = i.hurt), i.composer.render()) : e.render(t, n));
     }
-    return ((i.start = () => e.setAnimationLoop(c)), i.setQuality("medium"), i);
+    return ((i.start = () => requestAnimationFrame(c)), i.setQuality("medium"), i);
   }
   function da(s, e = !1) {
     let t = s[0].index !== null,
@@ -33039,7 +33039,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
     );
   }
   function e0(s) {
-    let { E: e, P: t, input: n0, AU: i } = s,
+    let { E: e, P: t, input: n, AU: i } = s,
       r = e.camera,
       o = {
         id: "me",
@@ -33071,7 +33071,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       };
     o.char = gs(e, { team: s.myTeam, tint: "#8f9a6c" });
     let a = new ut();
-    (r.add(a), s.vr ? (s.vr.rig.parent !== e.scene && e.scene.add(s.vr.rig), r.parent !== s.vr.rig && s.vr.rig.add(r)) : e.scene.add(r));
+    (r.add(a), e.scene.add(r));
     let c = null,
       h = "",
       l = new Xe({ color: "#6d5d47", roughness: 0.85 }),
@@ -33116,13 +33116,13 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       (a.add(z), (c = z));
       let T = ro(N),
         R = T ? T.boundingBox : null;
-      if (((a.userData.grip = [0, -0.075, 0]), N === "grenade")) ((a.userData.grip = [0, -0.03, -0.02]), z.position.set(0, 0, -0.05), a.add(y(0, -0.03, -0.02)));
-      else if (N === "shovel") ((a.userData.grip = [0, -0.05, 0.05]), (z.rotation.x = -0.5), a.add(y(0, -0.05, 0.05)));
+      if (N === "grenade") (z.position.set(0, 0, -0.05), a.add(y(0, -0.03, -0.02)));
+      else if (N === "shovel") ((z.rotation.x = -0.5), a.add(y(0, -0.05, 0.05)));
       else {
         let L = R ? R.max.z - R.min.z : 0.6,
           V = N === "pistol" || N === "revolver",
           G = R ? R.max.z - (V ? 0.06 : 0.26 * L) : 0.06;
-        if (((a.userData.grip = [0, V ? -0.055 : -0.075, G]), a.add(y(0, V ? -0.055 : -0.075, G)), V)) {
+        if ((a.add(y(0, V ? -0.055 : -0.075, G)), V)) {
           let W = y(-0.012, -0.06, G + 0.012);
           ((W.scale.x = -1), (W.rotation.y = 0.25), a.add(W));
         } else a.add(m(0, -0.035, R ? R.max.z - 0.55 * L : -0.2));
@@ -33166,11 +33166,9 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       M = new C(),
       A = new C();
     o.update = (N, z) => {
-      let VR = s.vr && s.vr.on ? s.vr : null,
-        n = VR ? VR.inp : n0;
       let T = o.load;
       if (!o.alive) {
-        ((o.deadT += N), o.char.update(N, {}), VR && VR.dead(o));
+        ((o.deadT += N), o.char.update(N, {}));
         let U = o.char.root.position,
           O = o.yaw + o.deadT * 0.25;
         (r.position.set(U.x + Math.sin(O) * 4.5, U.y + 2.6 + o.deadT * 0.2, U.z + Math.cos(O) * 4.5),
@@ -33186,7 +33184,6 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       if (
         ((o.yaw -= R.x * V),
         (o.pitch = Math.max(-1.45, Math.min(1.45, o.pitch - R.y * V * (s.settings.invert ? -1 : 1)))),
-        VR && ((o.yaw = VR.headYaw()), (o.pitch = VR.headPitch())),
         n.pressed("s1") && b(0),
         n.pressed("s2") && b(1),
         n.pressed("s3") && b(2),
@@ -33204,7 +33201,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       (n.pressed("cam") &&
         !s.fpOnly &&
         ((s.settings.tp = !s.settings.tp), s.saveSettings(), s.toast(s.settings.tp ? "C\xE1mara: tercera persona" : "C\xE1mara: primera persona")),
-        (o.tp = s.settings.tp && !s.fpOnly && !VR),
+        (o.tp = s.settings.tp && !s.fpOnly),
         (o.crouch = n.down("crouch") || !!n.keys.crouchT));
       let G = (n.ads || n.adsToggle) && !L.melee && !L.throw && T.reload <= 0;
       ((o.ads = G), (o.adsK += ((o.ads ? 1 : 0) - o.adsK) * Math.min(1, N * 12)), (o.crouchK += ((o.crouch ? 1 : 0) - o.crouchK) * Math.min(1, N * 10)));
@@ -33242,7 +33239,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
         if (n.fire && T.gren > 0 && T.cd <= 0) {
           o.charge = Math.min(1, (o.charge || 0) + N / 1.1);
           let U = new C();
-          (VR ? VR.aimDir(U) : r.getWorldDirection(U),
+          (r.getWorldDirection(U),
             s.FX.arc(
               E().addScaledVector(U, 0.5),
               U.clone()
@@ -33253,7 +33250,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
             s.hud.charge(o.charge));
         } else if (o.charge > 0) {
           let U = new C();
-          (VR ? VR.aimDir(U) : r.getWorldDirection(U),
+          (r.getWorldDirection(U),
             T.gren--,
             (T.cd = L.rate),
             s.combat.throwNade(o, E().addScaledVector(U, 0.5), U, 6 + 20 * o.charge),
@@ -33267,7 +33264,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       if (((o._held = n.fire), k && T.cd <= 0 && T.reload <= 0)) {
         if (L.melee) {
           ((T.cd = L.rate), (o.swing = 0.35));
-          let U = s.combat.melee(o, VR ? VR.aimYaw() : o.yaw, S());
+          let U = s.combat.melee(o, o.yaw, S());
           (L.silent ? i.click() : i.shot("shovel", null, !0), U && (s.hud.hitmarker(U.head, U.kill), U.takedown && s.toast("Derribo silencioso")));
         } else if (!L.throw) {
           if (ge && ge.mag <= 0) ge.res > 0 ? ((T.reload = L.reload), i.click()) : (i.click(), (T.cd = 0.3));
@@ -33347,15 +33344,13 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
         (i.listener.x = r.position.x),
         (i.listener.y = r.position.y),
         (i.listener.z = r.position.z),
-        (i.listener.yaw = o.yaw),
-        VR && VR.after(o, a, N));
+        (i.listener.yaw = o.yaw));
     };
     function E() {
       return new C(o.pos.x, o.pos.y + 1.62 - 0.5 * o.crouchK, o.pos.z);
     }
     o.eye = E;
     function w() {
-      if (s.vr && s.vr.on) return s.vr.aim();
       let N = new C();
       if ((r.getWorldDirection(N), o.tpK < 0.5)) return { o: r.position.clone(), d: N };
       let z = r.position,
@@ -35600,312 +35595,12 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   Y.E = Ye;
   Y.applyQuality = () => Ye.setQuality(Y.settings.quality === "auto" ? Ag() : Y.settings.quality);
   Y.applyQuality();
-
-  // ===== VR (visor): WebXR con el Quest. Stick izq. camina, stick der. gira, gatillo der. dispara, A recarga, B cambia arma,
-  // X salta, grip izq. agacha, clic del stick izq. corre, Y sale del visor. La interfaz se lee en la muñeca y en un cartel al frente.
-  function vrCreate(Y) {
-    const T3 = Jt,
-      E = Y.E,
-      R = E.renderer,
-      V = { on: !1, supported: !1, rig: new T3.Group(), turn: 0, hands: {}, edge: {}, hold: {}, move: { x: 0, y: 0 }, fireDown: !1, vm: null };
-    R.xr.enabled = !0;
-    R.xr.setReferenceSpaceType("local-floor");
-    E.scene.add(V.rig);
-    V.rig.add(E.camera);
-    for (let i = 0; i < 2; i++) {
-      const ray = R.xr.getController(i),
-        grip = R.xr.getControllerGrip(i);
-      V.rig.add(ray, grip);
-      ray.addEventListener("connected", (e) => {
-        V.hands[e.data.handedness] = { ray, grip, src: e.data };
-      });
-      ray.addEventListener("disconnected", () => {
-        for (const k in V.hands) V.hands[k].ray === ray && delete V.hands[k];
-      });
-    }
-    const q = new T3.Quaternion(),
-      eu = new T3.Euler(0, 0, 0, "YXZ"),
-      tv = new T3.Vector3();
-    // láser rojo finito desde el arma hasta donde pega
-    const laser = new T3.Line(
-      new T3.BufferGeometry().setFromPoints([new T3.Vector3(0, 0, 0), new T3.Vector3(0, 0, -1)]),
-      new T3.LineBasicMaterial({ color: "#ff3b2f", transparent: !0, opacity: 0.45 }),
-    );
-    laser.visible = !1;
-    const dot = new T3.Mesh(new T3.SphereGeometry(0.025, 8, 6), new T3.MeshBasicMaterial({ color: "#ff3b2f" }));
-    dot.visible = !1;
-    function panel(w, h, px) {
-      const cv = document.createElement("canvas");
-      cv.width = px;
-      cv.height = Math.round((px * h) / w);
-      const tx = new T3.CanvasTexture(cv);
-      tx.colorSpace = T3.SRGBColorSpace;
-      const m = new T3.Mesh(new T3.PlaneGeometry(w, h), new T3.MeshBasicMaterial({ map: tx, transparent: !0, depthTest: !1, depthWrite: !1 }));
-      m.renderOrder = 30;
-      return { cv, g: cv.getContext("2d"), tx, m };
-    }
-    const wrist = panel(0.17, 0.1, 512),
-      msg = panel(1.2, 0.4, 1024);
-    wrist.m.position.set(0, 0.035, 0.07);
-    wrist.m.rotation.set(-1.25, 0, 0);
-    msg.m.position.set(0, -0.05, -1.5);
-    const $q = (s) => document.querySelector(s),
-      tx = (s) => {
-        const e = $q(s);
-        return e ? e.textContent.replace(/\s+/g, " ").trim() : "";
-      },
-      shown = (s) => {
-        const e = $q(s);
-        return !!e && !e.hidden && getComputedStyle(e).display !== "none";
-      };
-    function rr(g, x, y, w, h, r) {
-      g.beginPath();
-      g.moveTo(x + r, y);
-      g.arcTo(x + w, y, x + w, y + h, r);
-      g.arcTo(x + w, y + h, x, y + h, r);
-      g.arcTo(x, y + h, x, y, r);
-      g.arcTo(x, y, x + w, y, r);
-      g.closePath();
-    }
-    function fit(g, t, max) {
-      while (g.measureText(t).width > max && t.length > 4) t = t.slice(0, -2);
-      return t;
-    }
-    let wristKey = "",
-      msgKey = "";
-    function drawWrist() {
-      const hp = tx("#hp b"),
-        am = tx("#ammo"),
-        wn = tx("#wname"),
-        ob = tx("#objtitle"),
-        op = tx("#objprog"),
-        k = [hp, am, wn, ob, op].join("|");
-      if (k === wristKey) return;
-      wristKey = k;
-      const { g, cv } = wrist,
-        W = cv.width,
-        H = cv.height;
-      g.clearRect(0, 0, W, H);
-      g.fillStyle = "rgba(12,14,18,.82)";
-      rr(g, 4, 4, W - 8, H - 8, 26);
-      g.fill();
-      g.fillStyle = +hp < 35 ? "#ff6a55" : "#7fd69a";
-      g.font = "700 72px 'Chakra Petch',sans-serif";
-      g.fillText(hp || "—", 26, 92);
-      g.fillStyle = "#efe8da";
-      g.textAlign = "right";
-      g.fillText(am, W - 26, 92);
-      g.font = "600 30px 'Chakra Petch',sans-serif";
-      g.fillStyle = "#b9b0a0";
-      g.fillText(fit(g, wn.toUpperCase(), 260), W - 26, 132);
-      g.textAlign = "left";
-      g.fillText("VIDA", 28, 132);
-      g.fillStyle = "#f2c14e";
-      g.font = "700 32px 'Chakra Petch',sans-serif";
-      g.fillText(fit(g, ob, W - 52), 26, 200);
-      g.fillStyle = "#b9b0a0";
-      g.font = "500 26px 'Chakra Petch',sans-serif";
-      g.fillText(fit(g, op, W - 52), 26, 240);
-      wrist.tx.needsUpdate = !0;
-    }
-    function drawMsg() {
-      let a = "",
-        b = "";
-      const bm = $q("#bigmsg");
-      if (shown("#mpend")) ((a = tx("#mpend h2")), (b = tx("#mpendc")));
-      else if (shown("#dead")) ((a = tx("#dead b")), (b = tx("#dead span")));
-      else if (bm && bm.classList.contains("on")) ((a = tx("#bigmsg b")), (b = tx("#bigmsg span")));
-      else if ($q("#toast") && $q("#toast").classList.contains("on")) b = tx("#toast");
-      else if (shown("#prompt")) b = tx("#prompt");
-      const k = a + "|" + b;
-      if (k === msgKey) return;
-      msgKey = k;
-      msg.m.visible = !!(a || b);
-      const { g, cv } = msg,
-        W = cv.width,
-        H = cv.height;
-      g.clearRect(0, 0, W, H);
-      if (!msg.m.visible) return;
-      g.fillStyle = "rgba(12,14,18,.7)";
-      rr(g, 6, 6, W - 12, H - 12, 30);
-      g.fill();
-      g.textAlign = "center";
-      g.fillStyle = "#efe8da";
-      g.font = "700 76px 'Chakra Petch',sans-serif";
-      a && g.fillText(fit(g, a, W - 60), W / 2, b ? 150 : 210);
-      g.fillStyle = "#f2c14e";
-      g.font = "600 44px 'Chakra Petch',sans-serif";
-      b && g.fillText(fit(g, b, W - 60), W / 2, a ? 240 : 205);
-      msg.tx.needsUpdate = !0;
-    }
-    const prev = {},
-      btn = (gp, i) => !!(gp && gp.buttons[i] && gp.buttons[i].pressed),
-      ax = (gp, i) => (gp && gp.axes.length > i ? gp.axes[i] : 0),
-      dz = (v) => (Math.abs(v) < 0.15 ? 0 : v);
-    V.poll = () => {
-      const L = V.hands.left && V.hands.left.src.gamepad,
-        Rp = V.hands.right && V.hands.right.src.gamepad;
-      V.move.x = dz(ax(L, 2));
-      V.move.y = -dz(ax(L, 3));
-      const now = {
-        fire: btn(Rp, 0),
-        reload: btn(Rp, 4),
-        next: btn(Rp, 5),
-        prev: btn(Rp, 1),
-        jump: btn(L, 4),
-        menu: btn(L, 5),
-        sprint: btn(L, 3),
-        crouch: btn(L, 1),
-        turnL: ax(Rp, 2) < -0.6,
-        turnR: ax(Rp, 2) > 0.6,
-      };
-      V.edge = {};
-      for (const k in now) ((V.edge[k] = now[k] && !prev[k]), (prev[k] = now[k]));
-      V.hold = now;
-      V.fireDown = now.fire;
-      V.edge.turnL && (V.turn += Math.PI / 6);
-      V.edge.turnR && (V.turn -= Math.PI / 6);
-    };
-    V.inp = {
-      look: () => ({ x: 0, y: 0 }),
-      pressed: (k) => !!V.edge[k],
-      down: (k) => !!V.hold[k],
-      axis: () => V.move,
-      get fire() {
-        return V.fireDown;
-      },
-      ads: !1,
-      adsToggle: !1,
-      keys: {},
-      endFrame() {},
-      touch: !1,
-    };
-    V.headYaw = () => (E.camera.getWorldQuaternion(q), eu.setFromQuaternion(q, "YXZ"), eu.y);
-    V.headPitch = () => (E.camera.getWorldQuaternion(q), eu.setFromQuaternion(q, "YXZ"), eu.x);
-    const hand = () => V.hands.right || V.hands.left;
-    V.aim = () => {
-      const h = hand();
-      if (!h) return { o: E.camera.getWorldPosition(new T3.Vector3()), d: E.camera.getWorldDirection(new T3.Vector3()) };
-      h.ray.updateMatrixWorld(!0);
-      return { o: h.ray.getWorldPosition(new T3.Vector3()), d: new T3.Vector3(0, 0, -1).applyQuaternion(h.ray.getWorldQuaternion(q)) };
-    };
-    V.aimDir = (U) => U.copy(V.aim().d);
-    V.aimYaw = () => {
-      const d = V.aim().d;
-      return Math.atan2(-d.x, -d.z);
-    };
-    V.pulse = (k, ms) => {
-      const h = hand(),
-        gp = h && h.src.gamepad,
-        a = gp && gp.hapticActuators && gp.hapticActuators[0];
-      a && a.pulse && a.pulse(k, ms);
-    };
-    let hudT = 0,
-      kick0 = 0;
-    V.after = (o, a, dt) => {
-      V.rig.position.set(o.pos.x, o.pos.y - 0.5 * o.crouchK, o.pos.z);
-      V.rig.rotation.set(0, V.turn, 0);
-      V.vm = a;
-      const h = hand();
-      if (h) {
-        a.parent !== h.ray && h.ray.add(a);
-        const gp = a.userData.grip || [0, -0.075, 0];
-        a.position.set(-gp[0], -gp[1] - 0.035, -gp[2] + 0.03 + o.kick * 0.03);
-        a.rotation.set(o.kick * 0.12 - (o.swing > 0 ? 1.1 * Math.sin((Math.PI * o.swing) / 0.35) : 0), 0, 0);
-        a.visible = o.alive;
-        laser.parent !== h.ray && h.ray.add(laser);
-        dot.parent !== Y.E.scene && Y.E.scene.add(dot);
-        const A = V.aim(),
-          hit = Y.P.ray(A.o.x, A.o.y, A.o.z, A.d.x, A.d.y, A.d.z, 80),
-          t = hit ? hit.t : 80;
-        laser.scale.set(1, 1, t);
-        laser.visible = o.alive;
-        dot.visible = o.alive && !!hit;
-        hit && dot.position.copy(A.o).addScaledVector(A.d, t - 0.02);
-      }
-      const L = V.hands.left;
-      L && wrist.m.parent !== L.grip && L.grip.add(wrist.m);
-      msg.m.parent !== E.camera && E.camera.add(msg.m);
-      o.kick > kick0 + 0.5 && V.pulse(0.7, 45);
-      kick0 = o.kick;
-      E.camera.getWorldPosition(tv);
-      const au = Y.AU.listener;
-      ((au.x = tv.x), (au.y = tv.y), (au.z = tv.z), (au.yaw = V.headYaw()));
-      hudT -= dt;
-      hudT <= 0 && ((hudT = 0.15), drawWrist(), drawMsg());
-    };
-    V.dead = (o) => {
-      V.rig.position.set(o.pos.x, o.pos.y + 1.2, o.pos.z + 0.01);
-      laser.visible = dot.visible = !1;
-      hudT -= 0.033;
-      hudT <= 0 && ((hudT = 0.15), drawWrist(), drawMsg());
-    };
-    V.exit = () => {
-      const s = R.xr.getSession();
-      s && s.end();
-    };
-    V.enter = () => {
-      if (V.on || !navigator.xr) return Promise.resolve();
-      return navigator.xr.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "bounded-floor"] }).then(async (s) => {
-        V.prevQ = E.qName;
-        E.setQuality("low");
-        await R.xr.setSession(s);
-        V.on = !0;
-        R.xr.setFoveation && R.xr.setFoveation(1);
-        document.body.classList.add("vrmode");
-        s.addEventListener("end", () => {
-          V.on = !1;
-          document.body.classList.remove("vrmode");
-          V.rig.position.set(0, 0, 0);
-          V.rig.rotation.set(0, 0, 0);
-          V.turn = 0;
-          laser.visible = dot.visible = !1;
-          V.vm && V.vm.parent !== E.camera && E.camera.add(V.vm);
-          (msg.m.removeFromParent(), wrist.m.removeFromParent(), laser.removeFromParent(), dot.removeFromParent());
-          E.setQuality(V.prevQ || "medium");
-          Y.onVRExit && Y.onVRExit();
-        });
-      });
-    };
-    // ¿hay visor? (en el navegador del Quest, sí)
-    const stat = (t) => {
-      const el = $q("#vrstat");
-      el && (el.textContent = t);
-    };
-    V.paint = () => {
-      const b = $q("#go-vr");
-      if (!b) return;
-      b.hidden = !V.supported;
-      b.querySelector("b").textContent = Y.vrWant ? "Visor VR: encendido" : "Visor VR: apagado";
-      b.classList.toggle("on", !!Y.vrWant);
-    };
-    navigator.xr &&
-      navigator.xr
-        .isSessionSupported("immersive-vr")
-        .then((ok) => {
-          V.supported = !!ok;
-          V.paint();
-        })
-        .catch(() => {});
-    E.add({
-      update() {
-        V.on && V.poll();
-      },
-      always() {
-        !Y.playing && V.on && (V.poll(), hudT -= 0.016, hudT <= 0 && ((hudT = 0.2), drawMsg()));
-      },
-    });
-    return V;
-  }
-
   var ei = kg(Ye.renderer.domElement, yt("#touch"));
   Y.input = ei;
   zd() && ei.setupTouch();
   var Bc = Hg();
   Bc.setVol(Y.settings.vol);
   Y.AU = Bc;
-  Y.vr = vrCreate(Y);
-  Y.vrWant = !!lo.get("vr", !1);
   var On = Fg();
   Y.P = On;
   var h0 = Vg(Ye);
@@ -35928,7 +35623,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
     on = null,
     ys = null;
   function d0() {
-    let s = [Ye.camera, Y.vr.rig];
+    let s = [Ye.camera];
     for (let e of Ye.scene.children.slice()) s.includes(e) || Ye.scene.remove(e);
     (Ye.camera.clear(), (Y.units.length = 0), On.clear());
   }
@@ -36054,7 +35749,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
     ((Y.mode = t), t.start(), Rf(), Y.hud.big(ki[t.md].short, e.name + " \xB7 " + ki[t.md].desc.split(";")[0].split(".")[0]));
   };
   Y.finish = (s) => {
-    ((Y.playing = !1), (Y.lastWin = s), Y.vr.on && setTimeout(() => Y.vr.exit(), s ? 1400 : 150));
+    ((Y.playing = !1), (Y.lastWin = s));
     let e = Y.mode,
       t = Math.round(Y.time - e.t0),
       n = e.kind === "op",
@@ -36093,7 +35788,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
     );
   };
   Y.pause = () => {
-    if ((Y.vr.on && Y.vr.exit(), Y.playing)) {
+    if (Y.playing) {
       if (Y.mode.kind === "dm") {
         if (Y.mode.ended) return;
         ((Y.menuOpen = !0), Y.hud.show(!1), (yt("#touch").hidden = !0), jt.show("#pause"), jt.team());
@@ -36177,7 +35872,7 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   Ye.add({
     update(s, e) {
       if (!Y.playing) return;
-      if (((Y.time = e), (u0.value = e), ei.pressed("menu") || (Y.vr.on && Y.vr.edge.menu))) {
+      if (((Y.time = e), (u0.value = e), ei.pressed("menu"))) {
         Y.pause();
         return;
       }
@@ -36275,41 +35970,6 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
         Ye.shadowFocus.set(0, 0, -30));
     },
   });
-  // al entrar a jugar con el visor encendido se abre la sesión VR (tiene que pedirse en el mismo clic)
-  for (let k of ["startMission", "startOp", "startDM"]) {
-    let f = Y[k];
-    Y[k] = (...a) => {
-      if (Y.vrWant && Y.vr.supported && !Y.vr.on)
-        return Y.vr
-          .enter()
-          .catch((e) => Y.toast("No se pudo abrir el visor: " + ((e && e.message) || e)))
-          .then(() => f(...a));
-      return f(...a);
-    };
-  }
-  Y.onVRExit = () => {
-    Y.playing && Y.pause();
-  };
-  {
-    let b = yt("#go-vr");
-    b &&
-      (b.onclick = () => {
-        ((Y.vrWant = !Y.vrWant), lo.set("vr", Y.vrWant), Y.vr.paint(), Y.toast(Y.vrWant ? "Al empezar cualquier modo se abre en el visor" : "Jugás en pantalla"));
-      });
-    Y.vr.paint();
-  }
-  // Superslow vive en el mismo archivo con su propio motor; mientras se juega, este se duerme
-  {
-    let b = yt("#go-ss");
-    b &&
-      (b.onclick = () => {
-        if (!window.SS) return Y.toast("Superslow no carg\xF3");
-        ((Ye.sleep = !0), Y.vr.on && Y.vr.exit(), window.SS.enter());
-      });
-    window.__ssExit = () => {
-      ((Ye.sleep = !1), jt.show("#home"));
-    };
-  }
   window.__G = Y;
 })();
 /*! Bundled license information:
