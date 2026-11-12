@@ -1,5 +1,5 @@
-// Palazo Real · 3cff1dfddf: con internet abre la última versión; sin conexión, la guardada
-const C='pz-3cff1dfddf',FILES=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','apple-touch-icon.png'];
+// Palazo Real · bc7b01ee8c: con internet abre la última versión; sin conexión, la guardada
+const C='pz-bc7b01ee8c',FILES=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('pz-')&&k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const p=new URL(e.request.url).pathname;const doc=e.request.mode==='navigate'||p.endsWith('/')||p.endsWith('/index.html');
