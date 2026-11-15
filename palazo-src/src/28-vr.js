@@ -1,4 +1,3 @@
-
   // ===== VR (visor Quest), con las manos como en Superslow:
   // grip agarra y sostiene (si lo soltás, el arma se cae; con envión, sale volando), gatillo dispara el arma de esa mano,
   // juntar las manos pasa el arma de una a otra. Fundas: armas largas en la espalda, pistola en la cintura derecha,
@@ -615,3 +614,4 @@
     V._HS = HS;
     return V;
   }
+

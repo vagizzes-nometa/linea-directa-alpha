@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copia dist/index.html a la carpeta palazo/ del repo como app instalable (manifiesto, ícono, service worker con versión nueva).
+# Uso: python3 publicar_app.py <carpeta del repo>. Copia dist/index.html a la carpeta palazo/ del repo como app instalable (manifiesto, ícono, service worker con versión nueva).
 import sys,os,hashlib,re
 D=os.path.dirname(os.path.abspath(__file__));repo=sys.argv[1]
 s=open(os.path.join(D,'dist','index.html')).read()

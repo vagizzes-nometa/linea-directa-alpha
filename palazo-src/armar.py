@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-# Arma el archivo único: Palazo Real (motor three 0.160) + Superslow con VR (motor three r128 propio).
+# Arma el archivo único dist/index.html: Palazo Real (src/, three 0.160) + Superslow con su VR (superslow/, three r128).
+# Uso: npm i (una vez) y python3 armar.py
 import re,sys,subprocess,os
 D=os.path.dirname(os.path.abspath(__file__))
 P=lambda *a:os.path.join(D,*a)
-head=open(P('page_head.html')).read()
-assets=open(P('assets.js.txt')).read()
+head=open(P('pagina','pagina.html')).read()
+assets=open(P('pagina','recursos.js.txt')).read()
 # ---- Superslow: estilos, pantalla y código desde el Palazo original
-ss_css=open(P('ss_css.txt')).read()
-ss_dom=open(P('ss_dom.html')).read()
+ss_css=open(P('superslow','estilos.css')).read()
+ss_dom=open(P('superslow','pantalla.html')).read()
 assert ss_dom.startswith('<div id="sswrap"'),ss_dom[:40]
 ss_dom=ss_dom.replace('>← Palazo</button>','>← Volver</button>').replace('Volver a Palazo','Volver al menú')
-helpers=open(P('ss_helpers.js')).read()
+helpers=open(P('superslow','modelos-armas.js')).read()
 assert helpers.startswith('const WGEO=') and helpers.rstrip().endswith('return g}'),helpers[-80:]
-ss=open(P('ss_src.js')).read()
+ss=open(P('superslow','superslow.js')).read()
 assert ss.startswith('const SS=(()=>{')
 gen_css='''
 #sswrap{--display:"Silkscreen","Courier New",monospace;font-family:var(--body);-webkit-user-select:none;user-select:none}
@@ -49,8 +50,11 @@ window.SS=SS;
 let last=0;function loop(t){requestAnimationFrame(loop);const dt=last?Math.min(.05,(t-last)/1000):.016;last=t;if(window.SSON&&!SS.X.on)SS.frame(dt)}requestAnimationFrame(loop);
 })();'''
 # Palazo Real minificado desde la fuente legible
-subprocess.run(['npx','esbuild',P('game.js'),'--minify','--outfile='+P('game.min2.js'),'--log-level=warning'],check=True,cwd=D)
-game=open(P('game.min2.js')).read()
+# Palazo Real: los archivos de src/ se pegan en orden (comparten un mismo ámbito) y se minifican
+os.makedirs(P('tmp'),exist_ok=True)
+open(P('tmp','juego.js'),'w').write(''.join(open(P('src',n)).read() for n in sorted(os.listdir(P('src'))) if n.endswith('.js')))
+subprocess.run(['npx','esbuild',P('tmp','juego.js'),'--minify','--outfile='+P('tmp','juego.min.js'),'--log-level=warning'],check=True,cwd=D)
+game=open(P('tmp','juego.min.js')).read()
 html=head+assets+'\n<script>'+three128.replace('</script','<\\/script')+'</script>\n<script>'+ss_js+'</script>\n<script>'+game+'</script>\n</body></html>\n'
 os.makedirs(P('dist'),exist_ok=True)
 open(P('dist','index.html'),'w').write(html)

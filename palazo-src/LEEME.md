@@ -1,9 +1,9 @@
 # Palazo Real · fuente
 
-Archivo único con Palazo Real (three 0.160) y Superslow con VR (three r128 propio).
+Shooter en el navegador: Palazo Real (campaña, operaciones, en línea, zombis, VR) y Superslow, en un solo archivo HTML.
 
-- `game.orig.js`: Palazo Real legible (recuperado del build). `vr_module.js`: modo VR. `patch_all.py` aplica VR y Superslow → `game.js`.
-- `page_head.html`: estilos y pantallas; `assets.js.txt`: soldado, armas y texturas embebidos.
-- `ss_*.js|txt|html`: Superslow tomado del Palazo original.
-- Armar: `python3 patch_all.py`, después `npm i esbuild@0.20 three@0.128.0` y `python3 build_u.py` → `dist/index.html`.
-- App instalable: `python3 pwa_u.py <repo>` copia a `palazo/`.
+**Empezar por [`docs/CONTINUAR.md`](docs/CONTINUAR.md).** Después: [`docs/TAREAS.md`](docs/TAREAS.md) (qué hacer), [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (por qué), [`docs/GLOSARIO.md`](docs/GLOSARIO.md) (nombres abreviados del código), [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
+
+```bash
+npm i && python3 armar.py && python3 pruebas/humo.py
+```
