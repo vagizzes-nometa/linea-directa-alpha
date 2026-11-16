@@ -46,11 +46,11 @@ Con las respuestas se hace la tarea **R3**.
 - **Verificar:** en el navegador sin pantalla, cargar El Pueblo 4 veces seguidas y leer `G.E.renderer.info.memory`: geometrías y texturas tienen que quedar iguales después de la 2.ª carga. Luego `humo.py`. Mirar que no aparezcan mallas negras o invisibles al volver a entrar (señal de haber liberado algo compartido).
 
 ### [ ] R2 · Ajustes de jugabilidad en VR — media
-- **Estado:** la VR funciona (P1 ok). Falta que Vago anote los puntos de jugabilidad que quiere cambiar, uno por línea, acá abajo. Sin esa lista no se empieza.
+- **Estado:** lista para empezar (todas las decisiones tomadas el 15 y 16-nov). La VR funciona (P1 ok).
 - **Lista de Vago (15-nov-2026, Quest 3S):**
   1. **Agarre a dos manos en armas largas:** la mano izquierda queda sobre el cargador, no sobre el guardamanos/agarre delantero. Revisar los puntos de agarre (`bb` en `15-personaje.js`) y el punto que usa la mano izquierda en `28-vr.js`.
   2. **Punto rojo casi ilegible a distancia:** agrandarlo según la distancia o hacerlo más brillante/contrastado.
-  3. **Recargar (decidido 15-nov):** recarga manual como en otros juegos de VR. Un botón suelta el cargador; la mano libre saca un cargador nuevo de una funda y lo mete en el arma (zona del cargador, con tolerancia generosa). Si la funda está vacía, no hay recarga. **Decidido 16-nov:** cargadores en el pecho; botón A del control derecho suelta el cargador. Las granadas se mudan del pecho a otro lado: **falta decidir dónde** (opciones: hombro izquierdo, o cintura atrás). **Descartado:** el gesto vago de "acercar la mano al arma" (a Vago le parece que puede fallar).
+  3. **Recargar (decidido 15-nov):** recarga manual como en otros juegos de VR. Un botón suelta el cargador; la mano libre saca un cargador nuevo de una funda y lo mete en el arma (zona del cargador, con tolerancia generosa). Si la funda está vacía, no hay recarga. **Decidido 16-nov:** cargadores en el pecho; botón A del control derecho suelta el cargador. Las granadas se mudan del pecho al **hombro izquierdo** (se sacan con la mano derecha cruzando, como de una mochila). **Descartado:** el gesto vago de "acercar la mano al arma" (a Vago le parece que puede fallar).
   4. **Órdenes a la escuadra (decidido 15-nov):** menú en la muñeca, elegido con la mano contraria (seguir, quietos, ir, fuego). Reusar los paneles de `28-vr.js` (`panel()`).
   5. **Pistola pixelada al agarrarla (16-nov):** en la mano se ve con el aspecto de bloques/píxeles de Superslow VR, no con el modelo de Palazo Real. Revisar qué modelo usa `28-vr.js` para la pistola en mano (`setW()`) frente a `oo`/`ro` de `15-personaje.js`.
 - **Ya están bien (no tocar):** fundas, moverse, saltar, agacharse, panel de la muñeca, salir del visor.
