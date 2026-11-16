@@ -29,10 +29,10 @@ async def main():
       {const f2=HS.right.gm.localToWorld(HS.right.gm.userData.fore.clone());V.rig.worldToLocal(f2);setL('l',f2.x,f2.y,f2.z);B('l',1,true);step(1);setL('l',f2.x-.03,f2.y+.04,f2.z-.05);step(2);
        const w=HS.right.gm.localToWorld(HS.right.gm.userData.fore.clone()),lh=hl.ray.getWorldPosition(new Vec());log.push(['guardamanos en la mano izq (cm)',+(w.distanceTo(lh)*100).toFixed(1)]);B('l',1,false);step(2);}
       // recarga manual: A suelta el cargador, la izquierda saca uno del pecho y lo mete
-      {const am=L().ammo.rifle,tot=am.mag+am.res;B('r',4,true);step(1);B('r',4,false);step(1);const out=!!am.out;B('r',0,true);step(2);B('r',0,false);step(1);const m1=am.mag;
+      {const am=L().ammo.rifle,tot=am.mag+am.res;B('r',4,true);step(1);B('r',4,false);step(1);const out=!!am.out;const U=HS.right.gm.userData,vis0=[U.magMesh.visible,U.ghost.visible];B('r',0,true);step(2);B('r',0,false);step(1);const m1=am.mag;
        setL('l',0,1.2,-.16);B('l',1,true);step(2);const enMano=HS.left.mag;
        const mp=HS.right.gm.localToWorld(HS.right.gm.userData.magPt.clone());V.rig.worldToLocal(mp);setL('l',mp.x,mp.y,mp.z);step(2);
-       log.push(['recarga: suelto',out,'dispara sin cargador',m1,'cargador en mano',enMano,'después',am.mag,'/',am.res,'balas iguales',am.mag+am.res===tot,'sin cargador',!!am.out]);B('l',1,false);step(2);}
+       log.push(['cargador/fantasma al soltar',vis0,'al meter',[U.magMesh.visible,U.ghost.visible]]);log.push(['recarga: suelto',out,'dispara sin cargador',m1,'cargador en mano',enMano,'después',am.mag,'/',am.res,'balas iguales',am.mag+am.res===tot,'sin cargador',!!am.out]);B('l',1,false);step(2);}
       // punto rojo: tamaño según distancia
       log.push(['punto rojo escala',+V._dot.scale.x.toFixed(2),'visible',V._dot.visible]);
       // guardar el fusil en la espalda: agarrar (saca la gracia) y soltar detrás de la cabeza

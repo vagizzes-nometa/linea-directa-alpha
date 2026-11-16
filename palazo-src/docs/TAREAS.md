@@ -185,3 +185,9 @@ Con las respuestas se hace la tarea **R3**.
   4. **Granadas en el hombro izquierdo** (se sacan con la mano derecha cruzando): ¿llegás cómodo? ¿Se confunde con la espalda al sacar el fusil?
   5. **Órdenes** (solo en Operaciones): cuatro botones encima del panel de la muñeca; dejar la mano derecha medio segundo sobre uno. ¿Se leen? ¿Se toca alguno sin querer?
   6. **Pistola con silenciador** (Operaciones): ¿se ve como pistola y no como bloque?
+- **16-nov-2026 · R2, segunda vuelta** (respuesta de Vago: órdenes bien, fundas bien). Probar en el Quest:
+  1. **Dos manos:** el cañón ahora sigue la línea entre las dos manos. ¿Se siente recto? La mano izquierda dibujada se pega al guardamanos aunque el control quede unos cm más abajo: ¿molesta?
+  2. **Cargador:** al apretar A o X desaparece del arma y queda un fantasma amarillo que late donde va el nuevo. ¿Se entiende si cargaste o no?
+  3. **Granada:** ¿llega lo bastante lejos ahora? (debería ser como el doble)
+  4. **Pistola con silenciador:** ¿se ve el silenciador?
+- **Pendiente de decidir con Vago:** mira del francotirador (propuesta: lente con aumento real que se activa al acercarla al ojo) y qué tienen de raro las manos.

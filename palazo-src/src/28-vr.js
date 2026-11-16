@@ -234,12 +234,30 @@
       const K = kit(),
         md = Y.modelOf(w), // la pistola con silenciador usa el modelo de la pistola (antes salía una caja)
         gm = new T3.Group(),
-        gun = K.gun(md),
+        sp = splitMag(md),
+        gun = sp ? new T3.Mesh(sp.body, Mb) : K.gun(md),
         bb = K.grips(md),
         gr = bb.gripR || [0, 0, 0],
         geo = K.geo(md);
       gun.position.set(-gr[0], -gr[1], -gr[2]);
       gm.add(gun);
+      if (sp) {
+        // el cargador va aparte: desaparece al soltarlo y en su lugar queda un fantasma amarillo que marca dónde meter el nuevo
+        const mm = new T3.Mesh(sp.mag, Mb),
+          gh = new T3.Mesh(magG, ghostM);
+        gh.scale.set(sp.size.x / 0.028 + 0.3, sp.size.y / 0.11 + 0.1, sp.size.z / 0.05 + 0.3);
+        gh.position.copy(sp.c);
+        gh.renderOrder = 6;
+        gh.visible = !1;
+        gun.add(mm, gh);
+        ((gm.userData.magMesh = mm), (gm.userData.ghost = gh));
+      }
+      if (w === "spistol") {
+        // silenciador: tubo en la boca del cañón
+        const sil = new T3.Mesh(silG, silM);
+        sil.position.set(0, 0.05, (geo ? geo.boundingBox.min.z : -0.2) - 0.065);
+        gun.add(sil);
+      }
       const hand = K.handR(0, 0, 0.0);
       h.side === "left" && (hand.scale.x *= -1);
       gm.add(hand);
@@ -252,13 +270,23 @@
         gm.add(sl);
         gm.userData.supHand = sl;
         gm.userData.fore = F;
-        // giro que lleva la línea mano derecha → guardamanos hacia la mano izquierda (a dos manos)
-        gm.userData.foreQ = new T3.Quaternion().setFromUnitVectors(new T3.Vector3(0, 0, -1), F.clone().normalize()).invert();
       }
-      const mg = geo && MAGZ[md] ? under(geo, MAGZ[md]) : null;
-      mg && (gm.userData.magPt = new T3.Vector3(-gr[0], mg.y - gr[1], mg.z - gr[2]));
+      if (sp) gm.userData.magPt = sp.c.clone().sub(tv.set(gr[0], gr[1], gr[2]));
+      else {
+        const mg = geo && MAGZ[md] ? under(geo, MAGZ[md]) : null;
+        mg && (gm.userData.magPt = new T3.Vector3(-gr[0], mg.y - gr[1], mg.z - gr[2]));
+        // armas sin cargador a la vista (escopeta, carabina, revólver): el fantasma marca dónde cargar
+        if (mg) {
+          const gh = new T3.Mesh(magG, ghostM);
+          gh.position.set(0, mg.y + 0.03, mg.z);
+          gh.renderOrder = 6;
+          gh.visible = !1;
+          gun.add(gh);
+          gm.userData.ghost = gh;
+        }
+      }
       gm.traverse((o) => o.isMesh && ((o.castShadow = !1), (o.renderOrder = 5)));
-      gm.userData.muzzle = new T3.Vector3(-gr[0], 0.03 - gr[1], (geo ? geo.boundingBox.min.z : -0.4) - gr[2]);
+      gm.userData.muzzle = new T3.Vector3(-gr[0], 0.03 - gr[1], (geo ? geo.boundingBox.min.z : -0.4) - gr[2] - (w === "spistol" ? 0.13 : 0));
       ((h.gm = gm), (h.gun = gun), h.g.add(gm));
     }
     // dónde va la mano izquierda (guardamanos) y dónde entra el cargador, como fracción del largo desde la culata
@@ -272,6 +300,45 @@
       for (let i = 0; i < P.count; i++) Math.abs(P.getZ(i) - z) < 0.025 && P.getY(i) < y && (y = P.getY(i));
       return { z, y: y > 1e8 ? b.min.y : y };
     }
+    // cargador de cada modelo: triángulos cuyo centro cae en esta caja (z desde, z hasta, por debajo de y)
+    const MAGBOX = { rifle: [-0.215, -0.07, 0.035], smg: [-0.245, -0.18, 0.01], sniper: [-0.2, -0.05, -0.015], pistol: [-0.005, 0.06, -0.104] },
+      magCache = {};
+    function splitMag(md) {
+      if (md in magCache) return magCache[md];
+      const geo = kit().geo(md),
+        B = MAGBOX[md];
+      if (!geo || !B) return (magCache[md] = null);
+      const P = geo.attributes.position.array,
+        Cc = geo.attributes.color.array,
+        A = { p: [], c: [] },
+        M = { p: [], c: [] };
+      for (let i = 0; i < P.length; i += 9) {
+        const cy = (P[i + 1] + P[i + 4] + P[i + 7]) / 3,
+          cz = (P[i + 2] + P[i + 5] + P[i + 8]) / 3,
+          T = cz > B[0] && cz < B[1] && cy < B[2] ? M : A;
+        for (let k = 0; k < 9; k++) (T.p.push(P[i + k]), T.c.push(Cc[i + k]));
+      }
+      const mk = (T) => {
+        const g = new T3.BufferGeometry();
+        g.setAttribute("position", new T3.Float32BufferAttribute(T.p, 3));
+        g.setAttribute("color", new T3.Float32BufferAttribute(T.c, 3));
+        g.computeVertexNormals();
+        g.computeBoundingBox();
+        g.userData.keep = !0;
+        return g;
+      };
+      const body = mk(A),
+        mag = mk(M),
+        bx = mag.boundingBox,
+        c = bx.getCenter(new T3.Vector3()),
+        loose = mag.clone().translate(-c.x, -c.y, -c.z); // copia centrada, para la mano y para el que se cae
+      loose.userData.keep = !0;
+      return (magCache[md] = { body, mag, loose, c, size: bx.getSize(new T3.Vector3()) });
+    }
+    const ghostM = new T3.MeshBasicMaterial({ color: "#f2c14e", transparent: !0, opacity: 0.35, depthWrite: !1 }),
+      silG = new T3.CylinderGeometry(0.017, 0.017, 0.13, 14).rotateX(Math.PI / 2),
+      silM = new T3.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.5, metalness: 0.5 });
+    ghostM.userData.keep = silG.userData.keep = silM.userData.keep = !0;
     const isGun = (w) => !!w && !!dt[w] && !dt[w].melee && !dt[w].throw;
     const magG = new T3.BoxGeometry(0.028, 0.11, 0.05),
       magMat = new T3.MeshStandardMaterial({ color: "#23262b", roughness: 0.6, metalness: 0.4 });
@@ -379,7 +446,9 @@
       // las balas que quedaban vuelven a la reserva
       ((a.res += a.mag), (a.mag = 0), (a.out = !0), Y.AU.click(), V.pulse(g.side, 0.5, 40));
       if (g.gm && g.gm.userData.magPt) {
-        const m = mkMag();
+        const sp = splitMag(Y.modelOf(g.w)),
+          m = sp ? new T3.Mesh(sp.loose, Mb) : mkMag();
+        m.userData.keep = !0;
         g.gm.updateMatrixWorld(!0);
         m.position.copy(g.gm.localToWorld(g.gm.userData.magPt.clone()));
         g.gm.getWorldQuaternion(m.quaternion);
@@ -390,7 +459,12 @@
     }
     function setMag(h, w) {
       h.mag = w || null;
-      if (w && !h.magM) ((h.magM = mkMag()), h.magM.position.set(0, -0.02, 0.01), (h.magM.renderOrder = 5), h.g.add(h.magM));
+      if (w) {
+        const sp = splitMag(Y.modelOf(w)),
+          g = sp ? sp.loose : magG;
+        if (!h.magM) ((h.magM = new T3.Mesh(g, sp ? Mb : magMat)), h.magM.position.set(0, -0.02, 0.01), (h.magM.renderOrder = 5), (h.magM.userData.keep = !0), h.g.add(h.magM));
+        else ((h.magM.geometry = g), (h.magM.material = sp ? Mb : magMat));
+      }
       h.magM && (h.magM.visible = !!w);
     }
     function magStep(h, p) {
@@ -499,8 +573,9 @@
       if (p.distanceTo(HP[c]) < HR[c]) return (w === "grenade" && L.gren++, setW(h, null), V.pulse(h.side, 0.35, 30), Y.AU.click());
       if (w === "grenade") {
         // la granada se tira con el envión de la mano (si la soltás quieta, cae a tus pies)
-        const vv = v.clone().multiplyScalar(1.45);
-        vv.length() > 26 && vv.setLength(26);
+        const vv = v.clone().multiplyScalar(2.2);
+        vv.length() > 30 && vv.setLength(30);
+        vv.length() > 4 && (vv.y += 1.5);
         (Y.combat.throwNade(Y.me, p.clone(), null, 0, { v: vv }), setW(h, null));
         return;
       }
@@ -626,6 +701,12 @@
         V.edge["rel" + S] && eject(h);
         h.mag && magStep(h, p);
         side === "right" && orders(p, dt0);
+        if (h.gm) {
+          const am = L.ammo[h.w],
+            out = !!(am && am.out),
+            u = h.gm.userData;
+          (u.magMesh && (u.magMesh.visible = !out), u.ghost && ((u.ghost.visible = out), out && (u.ghost.material.opacity = 0.5 + 0.2 * Math.sin(now * 6))));
+        }
         if (h.w) {
           const W = dt[h.w];
           if (W.melee) melee(h, handVel(h).length());
@@ -645,7 +726,6 @@
             up = new T3.Vector3(0, 1, 0).applyQuaternion(c.ray.getWorldQuaternion(q2));
           m4.lookAt(A, Bp, up);
           q.setFromRotationMatrix(m4);
-          h.gm.userData.foreQ && q.multiply(h.gm.userData.foreQ);
           h.gm.quaternion.copy(c.ray.getWorldQuaternion(q2).invert().multiply(q));
           h.gm.position.set(0, 0, 0.02 * h.kick * mul);
         } else {
