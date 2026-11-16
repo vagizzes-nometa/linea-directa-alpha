@@ -57,5 +57,12 @@ Cada capa usa solo las de abajo. Los archivos de `src/` se pegan en orden numér
 ## Superslow
 Código tal cual del Palazo de bloques (`superslow/`), envuelto por `armar.py` con lo mínimo que necesita (ajustes de sensibilidad y volumen tomados de Palazo Real, guardado propio en `palazo.v1`). Entra con `SS.enter()` y vuelve con `window.__ssExit()`.
 
+## Memoria gráfica al cambiar de mapa
+- Al limpiar la escena (`d0()` en `29-principal.js`) cada objeto se libera con `freeTree()` (`15-personaje.js`): geometrías, materiales, texturas, esqueletos, mallas instanciadas y sombras de luces.
+- No se libera lo compartido entre cargas (`sharedSet()`): recursos del soldado (`pa`), geometrías de armas en caché (`bf`), material `Mb`, texturas en caché de `Pn` (`pf`) y texturas de render (posfiltros).
+- Todo lo que se crea una sola vez y vive entre cargas lleva `userData.keep = true` (por ejemplo los paneles de la VR). **Regla para código nuevo:** si algo se reusa entre mapas, marcarlo así.
+- Los personajes liberan lo suyo al morir o irse (`char.dispose()`); el reflejo del cielo se reemplaza borrando el anterior (`07-ambiente.js`).
+- Prueba: `pruebas/memoria.py` (geometrías y texturas parejas carga tras carga).
+
 ## Guardado en el navegador
 Prefijo `pzreal.`: `settings` (calidad, sensibilidad, campo de visión, volumen, cámara, dificultad), `progress`, `mp` (nombre, color, arma, modo, mapa), `vr` (visor encendido).

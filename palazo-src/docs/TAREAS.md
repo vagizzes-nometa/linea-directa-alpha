@@ -37,7 +37,7 @@ Con las respuestas se hace la tarea **R3**.
 
 ## Reparaciones
 
-### [ ] R1 · Liberar la memoria gráfica al cambiar de mapa — chica/media
+### [x] R1 · Liberar la memoria gráfica al cambiar de mapa — chica/media
 - **Problema:** `d0()` en `29-principal.js` saca los objetos de la escena sin liberar geometrías, materiales ni texturas. +237 geometrías y +28 texturas por carga.
 - **Hacer:** antes de sacar cada objeto, recorrerlo y llamar `dispose()` a geometrías, materiales y sus texturas. **No liberar lo compartido:** recursos de `pa` (soldado), geometrías de armas en caché (`bf`, vía `ro`), texturas que devuelve `Pn` si están en caché, materiales de módulo como `Mb`. Marcar lo compartido con `userData.keep = true` al crearlo es lo más seguro.
 - **Cuidado:** los personajes clonan el esqueleto pero comparten geometría con `pa.soldier`; `gs(...).dispose` ya existe en `15-personaje.js`, revisar qué libera.
@@ -167,3 +167,4 @@ Con las respuestas se hace la tarea **R3**.
 
 ## Pendiente de probar en dispositivo
 (anotar acá, con fecha, lo que cada entrega deja para que Vago pruebe)
+- **15-nov-2026 · R1 (memoria al cambiar de mapa).** Antes: cada carga de El Pueblo sumaba +237 geometrías y +28 texturas. Ahora quedan fijas (177 y 34) carga tras carga. Probar en iPhone: entrar y salir de 5 o 6 partidas seguidas (mezclar campaña, arenas y zombis) y ver que la página no se recargue sola ni se ponga lenta. Mirar que soldados, armas y pasto se vean bien al volver a entrar.

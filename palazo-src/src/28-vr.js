@@ -42,6 +42,7 @@
       tx.colorSpace = T3.SRGBColorSpace;
       const m = new T3.Mesh(new T3.PlaneGeometry(w, h), new T3.MeshBasicMaterial({ map: tx, transparent: !0, depthTest: !1, depthWrite: !1 }));
       m.renderOrder = 30;
+      m.userData.keep = !0;
       return { cv, g: cv.getContext("2d"), tx, m };
     }
     const wrist = panel(0.17, 0.1, 512),

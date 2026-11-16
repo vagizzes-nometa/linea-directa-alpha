@@ -234,8 +234,10 @@
         (l.material.uniforms.sunPosition.value.copy(r),
           h.add(l),
           n.night && h.add(new Js("#3b4f78", "#05060a", 1)),
-          (i.environment = c.fromScene(h).texture),
+          (e.envRT && e.envRT.dispose(), (e.envRT = c.fromScene(h)), (i.environment = e.envRT.texture)),
           c.dispose(),
+          l.geometry.dispose(),
+          l.material.dispose(),
           (i.fog = new zr(n.fog, n.fogD)),
           (s.renderer.toneMappingExposure = n.exp));
         let u = n.night ? new C().setFromSphericalCoords(1, cs.degToRad(52), cs.degToRad(120)) : r.clone(),

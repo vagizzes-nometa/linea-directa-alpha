@@ -28,8 +28,10 @@
     on = null,
     ys = null;
   function d0() {
-    let s = [Ye.camera, Y.vr.rig];
-    for (let e of Ye.scene.children.slice()) s.includes(e) || Ye.scene.remove(e);
+    let s = [Ye.camera, Y.vr.rig],
+      k = sharedSet();
+    for (let e of Ye.scene.children.slice()) s.includes(e) || (Ye.scene.remove(e), freeTree(e, k));
+    for (let e of Ye.camera.children) freeTree(e, k);
     (Ye.camera.clear(), (Y.units.length = 0), On.clear());
   }
   async function Af(s) {

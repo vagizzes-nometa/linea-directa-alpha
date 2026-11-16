@@ -47,6 +47,44 @@
     return (h.setAttribute("position", new Ge(r, 3)), h.setAttribute("color", new Ge(a, 3)), h.computeVertexNormals(), h.computeBoundingBox(), (bf[s] = h));
   }
   var Mb = new Xe({ vertexColors: !0, roughness: 0.55, metalness: 0.35 });
+  // R1 · Liberar memoria gráfica de un árbol de objetos sin tocar lo compartido entre cargas:
+  // recursos del soldado (pa), geometrías de armas en caché (bf), material Mb, texturas en caché (pf),
+  // texturas de render (posfiltros, reflejo del cielo) y todo lo marcado con userData.keep.
+  function sharedSet() {
+    let k = new Set([Mb]);
+    for (let g in bf) k.add(bf[g]);
+    for (let t in pf) k.add(pf[t]);
+    let add = (o) =>
+      o.traverse((m) => {
+        if (m.geometry) k.add(m.geometry);
+        m.skeleton && k.add(m.skeleton);
+        for (let mt of [].concat(m.material || [])) {
+          k.add(mt);
+          for (let v of Object.values(mt)) v && v.isTexture && k.add(v);
+        }
+      });
+    pa.soldier && pa.soldier.scene && add(pa.soldier.scene);
+    return k;
+  }
+  function freeTree(root, keep) {
+    keep = keep || sharedSet();
+    let tex = (t) => {
+      t && t.isTexture && !t.isRenderTargetTexture && !keep.has(t) && !(t.userData && t.userData.keep) && (keep.add(t), t.dispose());
+    };
+    root.traverse((o) => {
+      if (o.userData && o.userData.keep) return;
+      o.geometry && !o.isSprite && !keep.has(o.geometry) && !o.geometry.userData.keep && (keep.add(o.geometry), o.geometry.dispose());
+      for (let mt of [].concat(o.material || [])) {
+        if (keep.has(mt) || mt.userData.keep) continue;
+        keep.add(mt);
+        for (let v of Object.values(mt)) tex(v);
+        if (mt.uniforms) for (let u in mt.uniforms) tex(mt.uniforms[u] && mt.uniforms[u].value);
+        mt.dispose();
+      }
+      o.isSkinnedMesh && o.skeleton && !keep.has(o.skeleton) && (keep.add(o.skeleton), o.skeleton.dispose());
+      (o.isInstancedMesh || (o.isLight && o.shadow)) && o.dispose && o.dispose();
+    });
+  }
   function oo(s) {
     if (s === "grenade") {
       let n = new ut(),
@@ -329,6 +367,8 @@ float zn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
       }),
       (m.dispose = () => {
         (s.scene.remove(a), s.scene.remove(p));
+        let k = sharedSet();
+        (freeTree(a, k), freeTree(p, k));
       }),
       (m.hitRay = (T, R, L) => {
         if (!m.alive) return null;
