@@ -25,19 +25,31 @@ async def main():
       // mano izq al guardamanos
       const fp=HS.right.gm.localToWorld(HS.right.gm.userData.fore.clone());V.rig.worldToLocal(fp);setL('l',fp.x,fp.y,fp.z);B('l',1,true);step(2);log.push(['dos manos',!!HS.right.supBy,HS.left.sup]);
       B('l',1,false);step(2);log.push(['suelta guardamanos',!!HS.right.supBy]);
+      // a dos manos, el guardamanos tiene que quedar en la mano izquierda (antes caía en el cargador)
+      {const f2=HS.right.gm.localToWorld(HS.right.gm.userData.fore.clone());V.rig.worldToLocal(f2);setL('l',f2.x,f2.y,f2.z);B('l',1,true);step(1);setL('l',f2.x-.03,f2.y+.04,f2.z-.05);step(2);
+       const w=HS.right.gm.localToWorld(HS.right.gm.userData.fore.clone()),lh=hl.ray.getWorldPosition(new Vec());log.push(['guardamanos en la mano izq (cm)',+(w.distanceTo(lh)*100).toFixed(1)]);B('l',1,false);step(2);}
+      // recarga manual: A suelta el cargador, la izquierda saca uno del pecho y lo mete
+      {const am=L().ammo.rifle,tot=am.mag+am.res;B('r',4,true);step(1);B('r',4,false);step(1);const out=!!am.out;B('r',0,true);step(2);B('r',0,false);step(1);const m1=am.mag;
+       setL('l',0,1.2,-.16);B('l',1,true);step(2);const enMano=HS.left.mag;
+       const mp=HS.right.gm.localToWorld(HS.right.gm.userData.magPt.clone());V.rig.worldToLocal(mp);setL('l',mp.x,mp.y,mp.z);step(2);
+       log.push(['recarga: suelto',out,'dispara sin cargador',m1,'cargador en mano',enMano,'después',am.mag,'/',am.res,'balas iguales',am.mag+am.res===tot,'sin cargador',!!am.out]);B('l',1,false);step(2);}
+      // punto rojo: tamaño según distancia
+      log.push(['punto rojo escala',+V._dot.scale.x.toFixed(2),'visible',V._dot.visible]);
       // guardar el fusil en la espalda: agarrar (saca la gracia) y soltar detrás de la cabeza
       B('r',1,true);step(1);setL('r',.05,1.48,.2);step(2);B('r',1,false);step(2);log.push(['guardado en espalda',HS.right.w,L().prim]);
       // pistola de la cintura derecha con la mano derecha
       setL('r',.22,.8,-.03);B('r',1,true);step(2);log.push(['saca pistola',HS.right.w]);
       // granada del pecho con la izquierda y tirarla con envión
-      setL('l',0,1.2,-.16);B('l',1,true);step(2);const g0=L().gren;log.push(['granada en mano',HS.left.w,'quedan',g0]);
-      for(let i=0;i<5;i++){setL('l',0,1.2+i*.05,-.16-i*.12);step(1)}B('l',1,false);step(1);log.push(['granada tirada',HS.left.w]);
+      setL('l',-.23,1.43,.04);B('l',1,true);step(2);const g0=L().gren;log.push(['granada del hombro izq',HS.left.w,'quedan',g0]);
+      for(let i=0;i<5;i++){setL('l',-.2,1.4+i*.05,-.1-i*.14);step(1)}B('l',1,false);step(1);log.push(['granada tirada',HS.left.w]);
       // soltar la pistola al frente (cae al piso)
       setL('r',.2,1.1,-.4);step(3);B('r',1,false);step(2);const pk=G.pickups.items.filter(i=>i.type==='w:'+'pistol').length;log.push(['pistola al piso',HS.right.w,'sec',L().sec,'en el piso',pk]);
       // levantarla del piso con la derecha (agachado)
       const it=G.pickups.items.find(i=>i.type==='w:pistol');if(!it)return JSON.stringify(log.concat([['items',G.pickups.items.map(i=>i.type).join(',')]]));const lp=new Vec(it.x,it.y+.5,it.z);V.rig.worldToLocal(lp);setL('r',lp.x,lp.y,lp.z);B('r',1,true);step(2);log.push(['levanta del piso',HS.right.w,'sec',L().sec]);
       // pasar a la otra mano
       setL('l',lp.x+.1,lp.y,lp.z);B('l',1,true);step(2);log.push(['pasa a la izq',HS.left.w,HS.right.w]);
+      // pistola con silenciador: usa el modelo de la pistola, no una caja
+      L().sec='spistol';L().ammo.spistol={mag:10,res:40};const HSr=HS.right;B('r',1,false);step(1);V._setW(HSr,'spistol');log.push(['silenciador: triángulos del modelo',HSr.gun.geometry.attributes.position.count/3]);
       return JSON.stringify(log)})()""")
     for l in json.loads(r):print(l)
     await pg.wait_for_timeout(300);await pg.screenshot(path='/tmp/vr_simulada.jpg',quality=70,timeout=120000)

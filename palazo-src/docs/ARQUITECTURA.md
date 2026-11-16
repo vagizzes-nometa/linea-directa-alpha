@@ -50,8 +50,13 @@ Cada capa usa solo las de abajo. Los archivos de `src/` se pegan en orden numér
 ## VR de Palazo Real
 - La cámara es hija de `G.vr.rig`, que sigue al jugador; la cabeza la mueve el visor.
 - Manos como en Superslow: grip sostiene, gatillo dispara el arma de esa mano, juntar las manos la pasa. Soltar: se cae al piso (queda para levantar) o, sobre su funda, se guarda.
-- Fundas calculadas desde la cabeza: espalda (largas), cintura derecha (pistola), cintura izquierda (melé), pecho (granadas).
-- Arma larga a una mano: retroceso ×2,2 y temblor. Con la otra mano en el guardamanos: ×0,45 y el arma apunta en la línea entre las dos manos.
+- Fundas calculadas desde la cabeza: espalda (largas), cintura derecha (pistola), cintura izquierda (melé), pecho (cargadores), hombro izquierdo (granadas). `nearH(p, ok)` elige la funda más cercana entre las que tienen algo para sacar.
+- Arma larga a una mano: retroceso ×2,2 y temblor. Con la otra mano en el guardamanos: ×0,45 y el arma gira para que el guardamanos caiga en la mano izquierda (`userData.foreQ`).
+- Puntos del arma en VR (`setW`): guardamanos y entrada del cargador salen de las tablas `FORE` y `MAGZ` (fracción del largo desde la culata) y de `under()`, que busca el borde inferior del modelo en esa franja. Los puntos `bb` de `15-personaje.js` siguen siendo los de la vista en pantalla.
+- El modelo del arma pasa siempre por `Y.modelOf(w)` (armas sin modelo propio, como la pistola con silenciador, usan el de otra; sin eso sale una caja).
+- Recarga manual: A/X suelta el cargador (las balas que quedaban vuelven a la reserva y el arma queda con `ammo.out`), la mano libre agarra en el pecho y lo acerca a `userData.magPt` (17 cm de tolerancia). Al salir del visor se borra `out`.
+- Órdenes a la escuadra: panel de 2×2 encima del de la muñeca (`ord`), solo si hay escuadra y el arma no está a dos manos. Se elige dejando la mano derecha 0,3 s sobre el botón. "Vayan" va al punto del suelo que mirás.
+- Punto rojo: escala con la distancia (tamaño aparente fijo) y lleva un borde oscuro.
 - Adentro del visor: calidad baja, sin posfiltros, foveación al máximo.
 
 ## Superslow

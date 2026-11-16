@@ -1,9 +1,10 @@
   // ===== VR (visor Quest), con las manos como en Superslow:
   // grip agarra y sostiene (si lo soltás, el arma se cae; con envión, sale volando), gatillo dispara el arma de esa mano,
   // juntar las manos pasa el arma de una a otra. Fundas: armas largas en la espalda, pistola en la cintura derecha,
-  // pala/cuchillo en la cintura izquierda, granadas en el pecho. Soltar el arma sobre su funda la guarda.
+  // pala/cuchillo en la cintura izquierda, cargadores en el pecho, granadas en el hombro izquierdo. Soltar el arma sobre su funda la guarda.
   // Arma larga con una sola mano: mucho retroceso y tiembla; con la otra mano en el guardamanos: firme y apunta hacia donde la llevás.
-  // Stick izq. camina (clic = correr) · stick der. gira de a 30°, abajo = agacharse · A / X recarga el arma de esa mano ·
+  // Stick izq. camina (clic = correr) · stick der. gira de a 30°, abajo = agacharse · A / X suelta el cargador; el nuevo se saca del pecho con la mano libre y se mete en el arma ·
+  // Órdenes a la escuadra: botones sobre el panel de la muñeca izquierda, se tocan con la mano derecha ·
   // B o clic del stick der. salta · Y sale del visor.
   function vrCreate(Y) {
     const T3 = Jt,
@@ -30,8 +31,15 @@
       eu = new T3.Euler(0, 0, 0, "YXZ"),
       tv = new T3.Vector3(),
       m4 = new T3.Matrix4();
-    const dot = new T3.Mesh(new T3.SphereGeometry(0.02, 8, 6), new T3.MeshBasicMaterial({ color: "#ff3b2f", depthTest: !1, transparent: !0, opacity: 0.85 }));
+    const dot = new T3.Mesh(new T3.SphereGeometry(0.02, 12, 8), new T3.MeshBasicMaterial({ color: "#ff2a1a", depthTest: !1, transparent: !0, opacity: 1 }));
     dot.renderOrder = 31;
+    {
+      // borde oscuro para que el punto se recorte contra cielo, pasto o paredes claras
+      const halo = new T3.Mesh(new T3.SphereGeometry(0.031, 12, 8), new T3.MeshBasicMaterial({ color: "#140000", depthTest: !1, transparent: !0, opacity: 0.6 }));
+      halo.renderOrder = 30;
+      dot.add(halo);
+      dot.userData.keep = halo.userData.keep = !0;
+    }
     dot.visible = !1;
     // ---- paneles: muñeca izquierda y cartel al frente ----
     function panel(w, h, px) {
@@ -46,7 +54,11 @@
       return { cv, g: cv.getContext("2d"), tx, m };
     }
     const wrist = panel(0.17, 0.1, 512),
-      msg = panel(1.2, 0.4, 1024);
+      msg = panel(1.2, 0.4, 1024),
+      ord = panel(0.17, 0.11, 512);
+    ord.m.position.set(0, 0.11, 0);
+    ord.m.visible = !1;
+    wrist.m.add(ord.m);
     wrist.m.position.set(0, 0.035, 0.07);
     wrist.m.rotation.set(-1.25, 0, 0);
     msg.m.position.set(0, -0.05, -1.5);
@@ -81,14 +93,14 @@
       if (W.melee) return W.name;
       if (W.throw) return "Granada";
       const a = Y.me.load.ammo[h.w];
-      return (h.reload > 0 ? "RECARGANDO" : a ? a.mag + "/" + a.res : "") + " " + W.name;
+      return (a ? (a.out ? "SIN CARGADOR" : a.mag <= 0 ? "VACÍO (A)" : a.mag + "/" + a.res) : "") + " " + W.name;
     }
     function drawWrist() {
       const L = Y.me && Y.me.load,
         hp = tx("#hp b"),
         hr = handInfo(HS.right),
         hl = handInfo(HS.left),
-        fund = L ? "Espalda: " + (L.prim ? dt[L.prim].name : "vacía") + " · Cintura: " + (L.sec ? dt[L.sec].name : "vacía") + " · Granadas: " + L.gren : "",
+        fund = L ? "Espalda: " + (L.prim ? dt[L.prim].name : "vacía") + " · Cintura: " + (L.sec ? dt[L.sec].name : "vacía") + " · Gran.: " + L.gren + " (hombro izq.)" : "",
         ob = tx("#objtitle"),
         op = tx("#objprog"),
         k = [hp, hr, hl, fund, ob, op].join("|");
@@ -212,7 +224,7 @@
         fist = kit().handR(0, 0, 0.02);
       side === "left" && (fist.scale.x *= -1);
       g.add(fist);
-      return { side, g, fist, w: null, gm: null, gun: null, sup: !1, supBy: null, cd: 0, reload: 0, kick: 0, hist: [], near: null, grace: !1, wob: Math.random() * 9 };
+      return { side, g, fist, w: null, gm: null, gun: null, sup: !1, supBy: null, cd: 0, reload: 0, kick: 0, hist: [], near: null, grace: !1, mag: null, magM: null, wob: Math.random() * 9 };
     }
     const other = (h) => (h.side === "right" ? HS.left : HS.right);
     function setW(h, w) {
@@ -220,33 +232,65 @@
       ((h.gm = null), (h.gun = null), (h.w = w || null), (h.grace = !1), (h.reload = 0), (h.kick = 0), h.supBy && ((h.supBy.sup = !1), (h.supBy = null)));
       if (!w) return;
       const K = kit(),
+        md = Y.modelOf(w), // la pistola con silenciador usa el modelo de la pistola (antes salía una caja)
         gm = new T3.Group(),
-        gun = K.gun(w),
-        bb = K.grips(w),
-        gr = bb.gripR || [0, 0, 0];
+        gun = K.gun(md),
+        bb = K.grips(md),
+        gr = bb.gripR || [0, 0, 0],
+        geo = K.geo(md);
       gun.position.set(-gr[0], -gr[1], -gr[2]);
       gm.add(gun);
       const hand = K.handR(0, 0, 0.0);
       h.side === "left" && (hand.scale.x *= -1);
       gm.add(hand);
-      if (bb.gripL) {
-        const sl = K.handL(bb.gripL[0] - gr[0], bb.gripL[1] - gr[1], bb.gripL[2] - gr[2]);
+      const fo = geo && FORE[md] ? under(geo, FORE[md]) : null;
+      if (fo) {
+        const F = new T3.Vector3(-0.015 - gr[0], fo.y + 0.015 - gr[1], fo.z - gr[2]),
+          sl = K.handL(F.x, F.y, F.z);
         h.side === "left" && (sl.scale.x *= -1);
         sl.visible = !1;
         gm.add(sl);
         gm.userData.supHand = sl;
-        gm.userData.fore = new T3.Vector3(bb.gripL[0] - gr[0], bb.gripL[1] - gr[1], bb.gripL[2] - gr[2]);
+        gm.userData.fore = F;
+        // giro que lleva la línea mano derecha → guardamanos hacia la mano izquierda (a dos manos)
+        gm.userData.foreQ = new T3.Quaternion().setFromUnitVectors(new T3.Vector3(0, 0, -1), F.clone().normalize()).invert();
       }
+      const mg = geo && MAGZ[md] ? under(geo, MAGZ[md]) : null;
+      mg && (gm.userData.magPt = new T3.Vector3(-gr[0], mg.y - gr[1], mg.z - gr[2]));
       gm.traverse((o) => o.isMesh && ((o.castShadow = !1), (o.renderOrder = 5)));
-      const geo = K.geo(w);
       gm.userData.muzzle = new T3.Vector3(-gr[0], 0.03 - gr[1], (geo ? geo.boundingBox.min.z : -0.4) - gr[2]);
       ((h.gm = gm), (h.gun = gun), h.g.add(gm));
     }
+    // dónde va la mano izquierda (guardamanos) y dónde entra el cargador, como fracción del largo desde la culata
+    const FORE = { rifle: 0.65, smg: 0.8, shotgun: 0.77, carbine: 0.62, sniper: 0.7 },
+      MAGZ = { rifle: 0.51, smg: 0.58, sniper: 0.39, shotgun: 0.3, carbine: 0.35, pistol: 0.15, revolver: 0.42 };
+    function under(geo, f) {
+      const b = geo.boundingBox,
+        z = b.max.z - f * (b.max.z - b.min.z),
+        P = geo.attributes.position;
+      let y = 1e9;
+      for (let i = 0; i < P.count; i++) Math.abs(P.getZ(i) - z) < 0.025 && P.getY(i) < y && (y = P.getY(i));
+      return { z, y: y > 1e8 ? b.min.y : y };
+    }
+    const isGun = (w) => !!w && !!dt[w] && !dt[w].melee && !dt[w].throw;
+    const magG = new T3.BoxGeometry(0.028, 0.11, 0.05),
+      magMat = new T3.MeshStandardMaterial({ color: "#23262b", roughness: 0.6, metalness: 0.4 });
+    magG.userData.keep = magMat.userData.keep = !0;
+    const mkMag = () => {
+      const m = new T3.Mesh(magG, magMat);
+      m.userData.keep = !0;
+      return m;
+    };
+    const drops = [];
+    let hintT = -99;
+    const hint = (t) => {
+      Y.time - hintT > 6 && ((hintT = Y.time), Y.toast(t));
+    };
     const inHands = (w) => (HS.right && HS.right.w === w) || (HS.left && HS.left.w === w);
-    const cls = (w) => (w === "grenade" ? "chest" : dt[w].slot === 0 ? "back" : dt[w].slot === 1 ? "hipR" : "hipL");
+    const cls = (w) => (w === "grenade" ? "shoulderL" : dt[w].slot === 0 ? "back" : dt[w].slot === 1 ? "hipR" : "hipL");
     // fundas alrededor del cuerpo, calculadas desde la cabeza y hacia dónde mira
-    const HP = { back: new T3.Vector3(), hipR: new T3.Vector3(), hipL: new T3.Vector3(), chest: new T3.Vector3() },
-      HR = { back: 0.34, hipR: 0.24, hipL: 0.24, chest: 0.2 };
+    const HP = { back: new T3.Vector3(), hipR: new T3.Vector3(), hipL: new T3.Vector3(), chest: new T3.Vector3(), shoulderL: new T3.Vector3() },
+      HR = { back: 0.34, hipR: 0.24, hipL: 0.24, chest: 0.2, shoulderL: 0.2 };
     function holsters() {
       const hd = E.camera.getWorldPosition(new T3.Vector3()),
         y = V.headYaw(),
@@ -256,29 +300,31 @@
       HP.hipR.copy(hd).add(tv.set(0, -0.8, 0)).addScaledVector(r, 0.22).addScaledVector(f, 0.03);
       HP.hipL.copy(hd).add(tv.set(0, -0.8, 0)).addScaledVector(r, -0.22).addScaledVector(f, 0.03);
       HP.chest.copy(hd).add(tv.set(0, -0.4, 0)).addScaledVector(f, 0.16);
+      HP.shoulderL.copy(hd).add(tv.set(0, -0.17, 0)).addScaledVector(r, -0.23).addScaledVector(f, -0.04);
       return { y, f, r };
     }
-    const nearH = (p) => {
+    const nearH = (p, ok) => {
       let best = null,
         bd = 1e9;
       for (const k in HP) {
+        if (ok && !ok(k)) continue;
         const d = p.distanceTo(HP[k]);
         d < HR[k] && d < bd && ((bd = d), (best = k));
       }
       return best;
     };
     // lo guardado en las fundas se ve en el cuerpo (cintura y pecho; la espalda no, para no taparte la vista)
-    const shown3 = { hipR: { w: null, m: null }, hipL: { w: null, m: null }, chest: { w: null, m: null } },
+    const shown3 = { hipR: { w: null, m: null }, hipL: { w: null, m: null }, chest: { w: null, m: null }, shoulderL: { w: null, m: null } },
       ringM = new T3.MeshBasicMaterial({ color: "#f2c14e", transparent: !0, opacity: 0.55, depthTest: !1 }),
       rings = {};
-    for (const k of ["back", "hipR", "hipL", "chest"]) {
+    for (const k of ["back", "hipR", "hipL", "chest", "shoulderL"]) {
       const r = new T3.Mesh(new T3.TorusGeometry(0.07, 0.006, 6, 24), ringM);
       r.renderOrder = 31;
       r.visible = !1;
       rings[k] = r;
     }
     function showStored(L, B) {
-      const want = { hipR: L.sec && !inHands(L.sec) ? L.sec : null, hipL: L.melee && !inHands(L.melee) ? L.melee : null, chest: L.gren > 0 ? "grenade" : null };
+      const want = { hipR: L.sec && !inHands(L.sec) ? L.sec : null, hipL: L.melee && !inHands(L.melee) ? L.melee : null, chest: spare() ? "mag" : null, shoulderL: L.gren > 0 ? "grenade" : null };
       for (const k in shown3) {
         const s = shown3[k];
         if (s.w !== want[k]) {
@@ -286,11 +332,11 @@
           s.m = null;
           s.w = want[k];
           if (s.w) {
-            const m = kit().gun(s.w);
+            const m = s.w === "mag" ? mkMag() : kit().gun(Y.modelOf(s.w));
             m.traverse((o) => o.isMesh && (o.castShadow = !1));
             s.m = new T3.Group();
             s.m.add(m);
-            k === "chest" ? m.scale.setScalar(0.8) : (m.rotation.x = Math.PI / 2 - 0.25);
+            s.w === "mag" ? (m.rotation.x = 0.25) : s.w === "grenade" ? m.scale.setScalar(0.8) : (m.rotation.x = Math.PI / 2 - 0.25);
           }
         }
         if (s.m) {
@@ -323,19 +369,48 @@
         d = new T3.Vector3(0, 0, -1).applyQuaternion(h.gm.getWorldQuaternion(q));
       return { o, d };
     }
-    function reload(h) {
-      const W = h.w && dt[h.w],
-        a = h.w && Y.me.load.ammo[h.w];
-      if (!W || W.melee || W.throw || !a || a.mag >= W.mag || a.res <= 0 || h.reload > 0) return;
-      ((h.reload = W.reload), Y.AU.click());
+    // ---- recarga manual: A/X suelta el cargador, la mano libre saca uno del pecho y lo mete en el arma ----
+    // ¿hay cargador de repuesto para algún arma que tengas en la mano?
+    const spare = () => ["right", "left"].some((k) => HS[k] && isGun(HS[k].w) && Y.me.load.ammo[HS[k].w] && Y.me.load.ammo[HS[k].w].res > 0);
+    function eject(h) {
+      const g = isGun(h.w) ? h : isGun(other(h).w) ? other(h) : null,
+        a = g && Y.me.load.ammo[g.w];
+      if (!a || a.out) return;
+      // las balas que quedaban vuelven a la reserva
+      ((a.res += a.mag), (a.mag = 0), (a.out = !0), Y.AU.click(), V.pulse(g.side, 0.5, 40));
+      if (g.gm && g.gm.userData.magPt) {
+        const m = mkMag();
+        g.gm.updateMatrixWorld(!0);
+        m.position.copy(g.gm.localToWorld(g.gm.userData.magPt.clone()));
+        g.gm.getWorldQuaternion(m.quaternion);
+        E.scene.add(m);
+        drops.push({ m, vy: 0, t: 1.2 });
+      }
+      a.res <= 0 && Y.toast("No te quedan cargadores");
+    }
+    function setMag(h, w) {
+      h.mag = w || null;
+      if (w && !h.magM) ((h.magM = mkMag()), h.magM.position.set(0, -0.02, 0.01), (h.magM.renderOrder = 5), h.g.add(h.magM));
+      h.magM && (h.magM.visible = !!w);
+    }
+    function magStep(h, p) {
+      const o = other(h),
+        a = o.w === h.mag && Y.me.load.ammo[o.w];
+      if (!a || !o.gm) return setMag(h, null);
+      if (!a.out || !o.gm.userData.magPt) return;
+      if (o.gm.localToWorld(o.gm.userData.magPt.clone()).distanceTo(p) < 0.17) {
+        const n = Math.min(dt[o.w].mag, a.res);
+        ((a.mag = n), (a.res -= n), (a.out = !1), setMag(h, null), Y.AU.click(), V.pulse(h.side, 0.7, 50), V.pulse(o.side, 0.7, 50));
+      }
     }
     function fire(h) {
       const me = Y.me,
         W = dt[h.w],
         a = me.load.ammo[h.w];
-      if (!a || h.cd > 0 || h.reload > 0) return;
-      if (a.mag <= 0) {
-        (Y.AU.click(), (h.cd = 0.3), a.res > 0 && reload(h));
+      if (!a || h.cd > 0) return;
+      if (a.out || a.mag <= 0) {
+        (Y.AU.click(), (h.cd = 0.3));
+        hint(a.out ? "Sacá un cargador del pecho con la mano libre y metelo en el arma" : a.res > 0 ? "Sin balas: A suelta el cargador" : "Sin munición");
         return;
       }
       a.mag--;
@@ -353,7 +428,6 @@
       const r = Y.combat.fire(me, o, d, h.w, spread, o);
       (r && Y.hud.hitmarker(r.head, r.kill), (h.kick = Math.min(1.6, h.kick + 1)), (me.kick = 1), V.pulse(h.side, long && !two ? 1 : 0.55, long ? 55 : 35));
       h.supBy && V.pulse(h.supBy.side, 0.4, 35);
-      a.mag <= 0 && a.res > 0 && setTimeout(() => h.w && reload(h), 250);
     }
     function pickFloor(h, p) {
       const L = Y.me.load;
@@ -381,6 +455,7 @@
       const o = other(h),
         L = Y.me.load;
       if (h.w) return void (h.grace = !1);
+      if (h.mag) return;
       // la otra mano en el guardamanos del arma
       if (o.w && o.gm && o.gm.userData.fore && !o.supBy && dt[o.w].slot === 0) {
         const fp = o.gm.localToWorld(o.gm.userData.fore.clone());
@@ -390,11 +465,16 @@
         }
       }
       // sacar de una funda
-      const n = nearH(p);
+      const can = { back: L.prim && !inHands(L.prim), hipR: L.sec && !inHands(L.sec), hipL: !inHands(L.melee || "shovel"), chest: isGun(o.w), shoulderL: L.gren > 0 },
+        n = nearH(p, (k) => can[k]);
+      if (n === "chest") {
+        if (L.ammo[o.w] && L.ammo[o.w].res > 0) return (setMag(h, o.w), V.pulse(h.side, 0.5, 40), Y.AU.click());
+        return void Y.toast("No te quedan cargadores");
+      }
       if (n === "back" && L.prim && !inHands(L.prim)) return (setW(h, L.prim), V.pulse(h.side, 0.5, 40), Y.AU.click());
       if (n === "hipR" && L.sec && !inHands(L.sec)) return (setW(h, L.sec), V.pulse(h.side, 0.5, 40), Y.AU.click());
       if (n === "hipL" && !inHands(L.melee || "shovel")) return (setW(h, L.melee || "shovel"), V.pulse(h.side, 0.5, 40), Y.AU.click());
-      if (n === "chest" && L.gren > 0) return (L.gren--, setW(h, "grenade"), V.pulse(h.side, 0.5, 40), Y.AU.click());
+      if (n === "shoulderL" && L.gren > 0) return (L.gren--, setW(h, "grenade"), V.pulse(h.side, 0.5, 40), Y.AU.click());
       // pasar el arma de una mano a la otra
       if (o.w && o.g.getWorldPosition(tv).distanceTo(p) < 0.25) {
         const w = o.w;
@@ -409,14 +489,14 @@
         ((h.sup = !1), o.supBy === h && ((o.supBy = null), o.gm && o.gm.userData.supHand && (o.gm.userData.supHand.visible = !1)));
         return;
       }
+      if (h.mag) return setMag(h, null); // soltado sin meterlo: vuelve al pecho
       if (!h.w || h.grace) return;
       const w = h.w,
         W = dt[w],
         c = cls(w),
-        n = nearH(p),
         v = handVel(h);
       // guardar en su funda
-      if (n === c) return (w === "grenade" && L.gren++, setW(h, null), V.pulse(h.side, 0.35, 30), Y.AU.click());
+      if (p.distanceTo(HP[c]) < HR[c]) return (w === "grenade" && L.gren++, setW(h, null), V.pulse(h.side, 0.35, 30), Y.AU.click());
       if (w === "grenade") {
         // la granada se tira con el envión de la mano (si la soltás quieta, cae a tus pies)
         const vv = v.clone().multiplyScalar(1.45);
@@ -439,6 +519,72 @@
         r = Y.combat.melee(Y.me, Math.atan2(-d.x, -d.z), h.w);
       (W.silent ? Y.AU.click() : Y.AU.shot("shovel", null, !0), r && (Y.hud.hitmarker(r.head, r.kill), V.pulse(h.side, 0.8, 60)));
     }
+    // ---- órdenes a la escuadra: cuatro botones sobre el panel de la muñeca; se tocan con la otra mano y se sostienen un instante ----
+    const OB = [
+      ["follow", "SEGUIME"],
+      ["hold", "QUIETOS"],
+      ["move", "VAYAN"],
+      ["fire", "FUEGO"],
+    ];
+    let ordKey = "",
+      ordHover = -1,
+      ordT = 0,
+      ordDone = !1;
+    function drawOrders() {
+      const sq = Y.squad,
+        free = !!(Y.stealth && Y.stealth.weaponsFree),
+        k = [sq.order, free, ordHover, ordDone, Math.round(ordT * 12)].join("|");
+      if (k === ordKey) return;
+      ordKey = k;
+      const { g, cv } = ord,
+        W = cv.width,
+        H = cv.height,
+        cw = W / 2,
+        ch = H / 2;
+      g.clearRect(0, 0, W, H);
+      OB.forEach(([id, name], i) => {
+        const x = (i % 2) * cw + 6,
+          y = (i >> 1) * ch + 6,
+          on = id === "fire" ? free : sq.order === id;
+        g.fillStyle = on ? "rgba(242,193,78,.92)" : "rgba(12,14,18,.86)";
+        rr(g, x, y, cw - 12, ch - 12, 22);
+        g.fill();
+        if (i === ordHover && !ordDone) {
+          g.fillStyle = "rgba(127,214,154,.75)";
+          rr(g, x, y, (cw - 12) * Math.min(1, ordT / 0.3), ch - 12, 22);
+          g.fill();
+        }
+        g.textAlign = "center";
+        g.fillStyle = on ? "#14161a" : "#efe8da";
+        g.font = "700 46px 'Chakra Petch',sans-serif";
+        g.fillText(id === "fire" ? (free ? "FUEGO LIBRE" : "NO DISPAREN") : name, x + (cw - 12) / 2, y + ch / 2 + (id === "move" ? -2 : 10), cw - 30);
+        if (id === "move") ((g.font = "500 26px 'Chakra Petch',sans-serif"), g.fillText("mirá el lugar", x + (cw - 12) / 2, y + ch / 2 + 34));
+      });
+      g.textAlign = "left";
+      ord.tx.needsUpdate = !0;
+    }
+    function giveOrder(id) {
+      const sq = Y.squad;
+      if (id === "fire") return sq.toggleFire();
+      if (id !== "move") return sq.give(id);
+      // "vayan": al punto del suelo que estás mirando
+      const o = E.camera.getWorldPosition(new T3.Vector3()),
+        d = E.camera.getWorldDirection(new T3.Vector3()),
+        hit = Y.P.ray(o.x, o.y, o.z, d.x, d.y, d.z, 80);
+      hit ? sq.give("move", [o.x + d.x * (hit.t - 0.6), o.z + d.z * (hit.t - 0.6)]) : Y.toast("Mirá a un lugar del suelo");
+    }
+    function orders(p, dt0) {
+      const on = !!(Y.squad && Y.playing && Y.me.alive && wrist.m.parent && !HS.left.sup); // con el arma a dos manos no aparece (no se toca sin querer)
+      ord.m.visible = on;
+      if (!on) return;
+      ord.m.updateWorldMatrix(!0, !1);
+      const l = ord.m.worldToLocal(tv.copy(p)),
+        inside = Math.abs(l.x) < 0.085 && Math.abs(l.y) < 0.055 && Math.abs(l.z) < 0.06,
+        cell = inside ? (l.y > 0 ? 0 : 2) + (l.x < 0 ? 0 : 1) : -1;
+      if (cell !== ordHover) ((ordHover = cell), (ordT = 0), (ordDone = !1), cell >= 0 && V.pulse("right", 0.2, 20));
+      else if (cell >= 0 && !ordDone && ((ordT += dt0), ordT >= 0.3)) ((ordDone = !0), V.pulse("right", 0.8, 60), V.pulse("left", 0.5, 40), giveOrder(OB[cell][0]));
+      drawOrders();
+    }
     let hudT = 0,
       loadRef = null,
       wasAlive = !1;
@@ -451,7 +597,7 @@
       const L = o.load;
       // reaparecer o cambiar de integrante: arma principal en la mano derecha
       if (L !== loadRef || (o.alive && !wasAlive)) {
-        ((loadRef = L), setW(HS.left, null), setW(HS.right, L.prim || L.sec || null), (HS.right.grace = !0), (HS.right.sup = HS.left.sup = !1));
+        ((loadRef = L), setW(HS.left, null), setMag(HS.left, null), setMag(HS.right, null), setW(HS.right, L.prim || L.sec || null), (HS.right.grace = !0), (HS.right.sup = HS.left.sup = !1));
       }
       wasAlive = o.alive;
       const B = holsters(),
@@ -470,22 +616,16 @@
         h.hist.length > 12 && h.hist.shift();
         h.fist.visible = !h.w && !h.sup;
         h.cd -= dt0;
-        if (h.reload > 0 && ((h.reload -= dt0), h.reload <= 0)) {
-          const W = dt[h.w],
-            am = L.ammo[h.w];
-          if (W && am) {
-            const n = Math.min(W.mag - am.mag, am.res);
-            ((am.mag += n), (am.res -= n), Y.AU.click());
-          }
-        }
         const nh = nearH(p);
         nh !== h.near && ((h.near = nh), nh && V.pulse(side, 0.15, 20));
         if (!o.alive) continue;
         const S = side === "right" ? "R" : "L";
         V.edge["grip" + S] && gripDown(h, p);
-        !V.hold["grip" + S] && (h.w || h.sup) && prev["_g" + S] && gripUp(h, p);
+        !V.hold["grip" + S] && (h.w || h.sup || h.mag) && prev["_g" + S] && gripUp(h, p);
         prev["_g" + S] = V.hold["grip" + S];
-        V.edge["rel" + S] && reload(h);
+        V.edge["rel" + S] && eject(h);
+        h.mag && magStep(h, p);
+        side === "right" && orders(p, dt0);
         if (h.w) {
           const W = dt[h.w];
           if (W.melee) melee(h, handVel(h).length());
@@ -505,6 +645,7 @@
             up = new T3.Vector3(0, 1, 0).applyQuaternion(c.ray.getWorldQuaternion(q2));
           m4.lookAt(A, Bp, up);
           q.setFromRotationMatrix(m4);
+          h.gm.userData.foreQ && q.multiply(h.gm.userData.foreQ);
           h.gm.quaternion.copy(c.ray.getWorldQuaternion(q2).invert().multiply(q));
           h.gm.position.set(0, 0, 0.02 * h.kick * mul);
         } else {
@@ -520,10 +661,16 @@
       dot.parent !== E.scene && E.scene.add(dot);
       if (ah && o.alive) {
         const A = aimOf(ah),
-          hit = Y.P.ray(A.o.x, A.o.y, A.o.z, A.d.x, A.d.y, A.d.z, 80);
+          hit = Y.P.ray(A.o.x, A.o.y, A.o.z, A.d.x, A.d.y, A.d.z, 150);
         dot.visible = !!hit;
-        hit && dot.position.copy(A.o).addScaledVector(A.d, hit.t - 0.03);
+        // se agranda con la distancia para verse siempre del mismo tamaño (como a 3 m)
+        hit && (dot.position.copy(A.o).addScaledVector(A.d, hit.t - 0.03), dot.scale.setScalar(Math.max(1, dot.position.distanceTo(E.camera.getWorldPosition(tv)) / 3)));
       } else dot.visible = !1;
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        ((d.vy -= 9.8 * dt0), (d.m.position.y += d.vy * dt0), (d.m.rotation.x += 4 * dt0), (d.t -= dt0));
+        d.t <= 0 && (d.m.removeFromParent(), drops.splice(i, 1));
+      }
       // la interfaz muestra el arma de la mano derecha (o la izquierda)
       const hw = HS.right.w || HS.left.w;
       hw && (L.slot = hw === "grenade" ? 3 : dt[hw].slot === 2 ? 2 : hw === L.prim ? 0 : 1);
@@ -578,7 +725,10 @@
           V.turn = 0;
           V.crouchT = !1;
           dot.visible = !1;
-          for (const k of ["right", "left"]) HS[k] && (HS[k].g.removeFromParent(), setW(HS[k], null));
+          for (const k of ["right", "left"]) HS[k] && (HS[k].g.removeFromParent(), setW(HS[k], null), setMag(HS[k], null));
+          for (const d of drops.splice(0)) d.m.removeFromParent();
+          { const A = Y.me && Y.me.load && Y.me.load.ammo; if (A) for (const k in A) A[k] && delete A[k].out; }
+          ord.m.visible = !1;
           for (const k in shown3) shown3[k].m && shown3[k].m.removeFromParent();
           for (const k in rings) rings[k].removeFromParent();
           V.vm && (V.vm.parent !== E.camera && E.camera.add(V.vm), (V.vm.visible = !0));
@@ -613,6 +763,9 @@
       },
     });
     V._HS = HS;
+    V._dot = dot;
+    V._ord = ord.m;
+    V._setW = setW;
     return V;
   }
 

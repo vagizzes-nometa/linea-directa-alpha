@@ -45,8 +45,8 @@ Con las respuestas se hace la tarea **R3**.
 - **Cuidado:** los personajes clonan el esqueleto pero comparten geometría con `pa.soldier`; `gs(...).dispose` ya existe en `15-personaje.js`, revisar qué libera.
 - **Verificar:** en el navegador sin pantalla, cargar El Pueblo 4 veces seguidas y leer `G.E.renderer.info.memory`: geometrías y texturas tienen que quedar iguales después de la 2.ª carga. Luego `humo.py`. Mirar que no aparezcan mallas negras o invisibles al volver a entrar (señal de haber liberado algo compartido).
 
-### [ ] R2 · Ajustes de jugabilidad en VR — media
-- **Estado:** lista para empezar (todas las decisiones tomadas el 15 y 16-nov). La VR funciona (P1 ok).
+### [x] R2 · Ajustes de jugabilidad en VR — media
+- **Estado:** hecha el 16-nov-2026 (falta probar en el Quest, ver abajo). Quedan pendientes, si hacen falta tras la prueba: inclinar el arma, altura de fundas según la cabeza, opción "sentado" (esta última va con I5).
 - **Lista de Vago (15-nov-2026, Quest 3S):**
   1. **Agarre a dos manos en armas largas:** la mano izquierda queda sobre el cargador, no sobre el guardamanos/agarre delantero. Revisar los puntos de agarre (`bb` en `15-personaje.js`) y el punto que usa la mano izquierda en `28-vr.js`.
   2. **Punto rojo casi ilegible a distancia:** agrandarlo según la distancia o hacerlo más brillante/contrastado.
@@ -178,3 +178,10 @@ Con las respuestas se hace la tarea **R3**.
 ## Pendiente de probar en dispositivo
 (anotar acá, con fecha, lo que cada entrega deja para que Vago pruebe)
 - **15-nov-2026 · R1 (memoria al cambiar de mapa).** Antes: cada carga de El Pueblo sumaba +237 geometrías y +28 texturas. Ahora quedan fijas (177 y 34) carga tras carga. Probar en iPhone: entrar y salir de 5 o 6 partidas seguidas (mezclar campaña, arenas y zombis) y ver que la página no se recargue sola ni se ponga lenta. Mirar que soldados, armas y pasto se vean bien al volver a entrar.
+- **16-nov-2026 · R2 (ajustes de VR).** Probar en el Quest 3S:
+  1. **Agarre a dos manos** (fusil, subfusil, escopeta, carabina, francotirador): la mano izquierda tiene que ir al guardamanos, no al cargador, y el arma apuntar natural entre las dos manos. Si queda muy adelante o muy atrás en alguna arma, decir cuál.
+  2. **Punto rojo:** ¿se ve a 30–60 m? ¿Molesta de cerca?
+  3. **Recarga:** vaciar el cargador, apretar A (o X con la izquierda), llevar la mano libre al pecho, apretar el grip y meter el cargador por debajo del arma. ¿Cuesta encontrar el lugar? Probar también con la pistola.
+  4. **Granadas en el hombro izquierdo** (se sacan con la mano derecha cruzando): ¿llegás cómodo? ¿Se confunde con la espalda al sacar el fusil?
+  5. **Órdenes** (solo en Operaciones): cuatro botones encima del panel de la muñeca; dejar la mano derecha medio segundo sobre uno. ¿Se leen? ¿Se toca alguno sin querer?
+  6. **Pistola con silenciador** (Operaciones): ¿se ve como pistola y no como bloque?
