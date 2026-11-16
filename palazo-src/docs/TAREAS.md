@@ -7,7 +7,9 @@ Al terminar una tarea: marcarla `[x]`, publicar (artefacto, app, repo) y anotar 
 
 ## Primero: lo que solo puede probar Vago
 
-### [ ] P1 · Probar la VR de Palazo Real en el Quest (20 min)
+### [x] P1 · Probar la VR de Palazo Real en el Quest (20 min)
+**15-nov-2026:** Vago probó en el Quest 3S: entra y anda sin problemas. Quedan cosas de jugabilidad para corregir más adelante (ver R2).
+
 Abrir la app en el navegador del Quest, encender "Visor VR", entrar a **En línea → Zombis → Practicar solo** (es el modo más simple). Anotar sí/no y qué pasa:
 1. ¿Entra al visor y ves el mapa a la altura correcta (ni enano ni gigante)?
 2. ¿El fusil aparece en la mano derecha, derecho, apuntando hacia donde apunta el control?
@@ -43,7 +45,9 @@ Con las respuestas se hace la tarea **R3**.
 - **Cuidado:** los personajes clonan el esqueleto pero comparten geometría con `pa.soldier`; `gs(...).dispose` ya existe en `15-personaje.js`, revisar qué libera.
 - **Verificar:** en el navegador sin pantalla, cargar El Pueblo 4 veces seguidas y leer `G.E.renderer.info.memory`: geometrías y texturas tienen que quedar iguales después de la 2.ª carga. Luego `humo.py`. Mirar que no aparezcan mallas negras o invisibles al volver a entrar (señal de haber liberado algo compartido).
 
-### [ ] R2 · Ajustar la VR con lo que salga de P1 — media
+### [ ] R2 · Ajustes de jugabilidad en VR — media
+- **Estado:** la VR funciona (P1 ok). Falta que Vago anote los puntos de jugabilidad que quiere cambiar, uno por línea, acá abajo. Sin esa lista no se empieza.
+- **Lista de Vago:** _(pendiente)_
 - **Dónde:** `28-vr.js`. Posiciones de fundas: función `holsters()` (`HP.back`, `HP.hipR`, `HP.hipL`, `HP.chest`) y radios `HR`. Arma en la mano: `setW()` (offset por `gripR`) y el bloque "apuntar" al final de `V.after`. Retroceso a una y dos manos: `fire()` (`mul`) y el mismo bloque.
 - **Probable que haga falta:** inclinar el arma unos grados (los controles del Quest apuntan más arriba que un mango de pistola), bajar o subir las fundas según altura real de la cabeza, y una opción "sentado".
 - **Verificar:** `vr_simulada.py` y de nuevo P1.
