@@ -50,8 +50,8 @@ Con las respuestas se hace la tarea **R3**.
 - **Lista de Vago (15-nov-2026, Quest 3S):**
   1. **Agarre a dos manos en armas largas:** la mano izquierda queda sobre el cargador, no sobre el guardamanos/agarre delantero. Revisar los puntos de agarre (`bb` en `15-personaje.js`) y el punto que usa la mano izquierda en `28-vr.js`.
   2. **Punto rojo casi ilegible a distancia:** agrandarlo según la distancia o hacerlo más brillante/contrastado.
-  3. **Recargar:** falta un botón para activarla en VR. Elegir botón con Vago (los del Quest están casi todos ocupados) o gesto (llevar la mano libre al arma).
-  4. **Órdenes a la escuadra en VR:** falta un botón o menú para dar indicaciones (seguir, quietos, ir, fuego). Probable: botón que abre un menú radial en la muñeca y se elige apuntando.
+  3. **Recargar (decidido 15-nov):** recarga manual como en otros juegos de VR. Un botón suelta el cargador; la mano libre saca un cargador nuevo de una funda y lo mete en el arma (zona del cargador, con tolerancia generosa). Si la funda está vacía, no hay recarga. **Falta decidir:** dónde va la funda de cargadores (pecho ya es granadas, cintura izquierda es melé) y qué botón suelta el cargador. **Descartado:** el gesto vago de "acercar la mano al arma" (a Vago le parece que puede fallar).
+  4. **Órdenes a la escuadra (decidido 15-nov):** menú en la muñeca, elegido con la mano contraria (seguir, quietos, ir, fuego). Reusar los paneles de `28-vr.js` (`panel()`).
 - **Ya están bien (no tocar):** fundas, moverse, saltar, agacharse, panel de la muñeca, salir del visor.
 - **Dónde:** `28-vr.js`. Posiciones de fundas: función `holsters()` (`HP.back`, `HP.hipR`, `HP.hipL`, `HP.chest`) y radios `HR`. Arma en la mano: `setW()` (offset por `gripR`) y el bloque "apuntar" al final de `V.after`. Retroceso a una y dos manos: `fire()` (`mul`) y el mismo bloque.
 - **Probable que haga falta:** inclinar el arma unos grados (los controles del Quest apuntan más arriba que un mango de pistola), bajar o subir las fundas según altura real de la cabeza, y una opción "sentado".
